@@ -280,12 +280,10 @@ class DetectionTab(QWidget):
             QPushButton:hover {
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                                           stop:0 #5CB85C, stop:1 #4CAF50);
-                transform: scale(1.02);
             }
             QPushButton:pressed {
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                                           stop:0 #3d8b40, stop:1 #388e3c);
-                transform: scale(0.98);
             }
             QPushButton:disabled {
                 background: #c0c0c0;
@@ -313,12 +311,10 @@ class DetectionTab(QWidget):
             QPushButton:hover {
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                                           stop:0 #ff6b6b, stop:1 #f44336);
-                transform: scale(1.02);
             }
             QPushButton:pressed {
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                                           stop:0 #c0392b, stop:1 #a4190a);
-                transform: scale(0.98);
             }
             QPushButton:disabled {
                 background: #c0c0c0;
