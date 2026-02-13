@@ -4,11 +4,6 @@
 
 本项目实现了基于 TSN（Temporal Segment Networks，时序分段网络）的视频行为识别系统，支持 UCF101 和 HMDB51 数据集。系统包含完整的训练模块、实时视频检测功能和图形用户界面。
 
-**最新更新（v2.2）：**
-- ✨ 新增检测结果管理模块：自动收集和归类检测结果
-- ✨ 新增模型管理模块：上传、查看、管理检测模型
-- 🎨 优化的 GUI 界面：专注于检测功能的使用体验
-
 ---
 
 ## 目录
@@ -123,9 +118,6 @@ video_action_detection/
 ├── models/               # 模型目录
 ├── icon/                # 图标资源
 │   └── camara.svg
-├── config.py            # 旧版配置文件（向后兼容）
-├── dataset.py           # 旧版数据集文件（向后兼容）
-├── model.py             # 旧版模型文件（向后兼容）
 ├── requirements.txt      # Python 依赖
 └── README.md            # 本文件
 ```
