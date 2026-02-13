@@ -1,0 +1,90 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+env/
+ENV/
+.venv
+
+# PyCharm
+.idea/
+*.iml
+*.iws
+.idea_modules/
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb
+
+# Data files (too large for git)
+data/ucf101/
+data/hmdb51/
+data/*.avi
+data/*.mp4
+data/*.mkv
+
+# Model checkpoints (too large for git)
+outputs/checkpoints/*.pth
+outputs/models/custom/*.pth
+*.pth
+
+# Output files
+outputs/videos/*
+outputs/results/*
+outputs/logs/*
+
+# But keep directory structure
+!outputs/checkpoints/.gitkeep
+!outputs/models/.gitkeep
+!outputs/models/ucf101/.gitkeep
+!outputs/models/custom/.gitkeep
+!outputs/videos/.gitkeep
+!outputs/results/.gitkeep
+!outputs/logs/.gitkeep
+
+# Large video files
+*.mp4
+*.avi
+*.mkv
+*.mov
+*.wmv
+
+# OS specific
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+nul
+
+# Claude Code (parent directory)
+../.claude/
