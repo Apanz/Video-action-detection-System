@@ -7,7 +7,7 @@ import os
 import sys
 from pathlib import Path
 
-# Add src directory to path
+# 将src目录添加到路径
 ROOT_DIR = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT_DIR / "src"))
 
@@ -15,14 +15,14 @@ from core.config import MODELS_DIR
 
 
 def download_yolo_models():
-    """Download YOLO models to models directory"""
+    """下载YOLO模型到模型目录"""
     import torch
     from ultralytics import YOLO
 
-    # Ensure models directory exists
+    # 确保模型目录存在
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
 
-    # Models to download
+    # 要下载的模型
     models = [
         "yolov5s.pt",
         "yolov8n.pt",
@@ -36,17 +36,17 @@ def download_yolo_models():
     for model_name in models:
         model_path = MODELS_DIR / model_name
 
-        # Skip if already exists
+        # 如果已存在则跳过
         if model_path.exists():
             print(f"✓ {model_name} already exists, skipping...")
             continue
 
         print(f"Downloading {model_name}...")
         try:
-            # Download model using ultralytics
+            # 使用ultralytics下载模型
             model = YOLO(model_name)
 
-            # Save to models directory
+            # 保存到模型目录
             model.save(str(model_path))
 
             print(f"✓ Successfully downloaded {model_name} to {model_path}")

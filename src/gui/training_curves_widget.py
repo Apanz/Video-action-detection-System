@@ -13,9 +13,9 @@ import platform
 
 
 def get_chinese_font():
-    """Get FontProperties for Chinese font."""
+    """获取中文字体的FontProperties。"""
     if platform.system() == 'Windows':
-        # Windows: Try common Chinese fonts
+        # Windows：尝试常见中文字体
         chinese_fonts = [
             'Microsoft YaHei',      # 微软雅黑
             'SimHei',               # 黑体
@@ -39,7 +39,7 @@ def get_chinese_font():
             'Droid Sans Fallback',
         ]
 
-    # Find available font
+    # 查找可用字体
     from matplotlib.font_manager import fontManager
     available_fonts = set([f.name for f in fontManager.ttflist])
 
@@ -50,17 +50,17 @@ def get_chinese_font():
             except Exception:
                 continue
 
-    # Fallback to default
+    # 回退到默认字体
     return FontProperties()
 
 
-# Global font properties for Chinese text
+# 中文字体的全局字体属性
 CHINESE_FONT = get_chinese_font()
 
 
 class TrainingCurvesWidget(QWidget):
     """
-    Widget for displaying training loss and accuracy curves.
+    用于显示训练损失和精度曲线的小部件。
     """
 
     def __init__(self, parent=None):
@@ -69,11 +69,11 @@ class TrainingCurvesWidget(QWidget):
         self.current_log_dir = None
 
     def init_ui(self):
-        """Initialize UI layout."""
+        """初始化UI布局。"""
         layout = QVBoxLayout(self)
         layout.setContentsMargins(10, 10, 10, 10)
 
-        # Info label
+        # 信息标签
         self.info_label = QLabel("点击下方按钮选择TensorBoard日志目录\nClick button below to select TensorBoard log directory")
         self.info_label.setAlignment(Qt.AlignCenter)
         self.info_label.setStyleSheet("""
@@ -86,13 +86,13 @@ class TrainingCurvesWidget(QWidget):
         """)
         layout.addWidget(self.info_label)
 
-        # Matplotlib figure
+        # Matplotlib图形
         self.figure = Figure(figsize=(8, 6), dpi=100)
         self.canvas = FigureCanvas(self.figure)
         self.canvas.setVisible(False)
         layout.addWidget(self.canvas)
 
-        # Empty plot area placeholder
+        # 空白绘图区域占位符
         self.placeholder_label = QLabel("暂无训练曲线 No training curves")
         self.placeholder_label.setAlignment(Qt.AlignCenter)
         self.placeholder_label.setStyleSheet("""
@@ -109,11 +109,11 @@ class TrainingCurvesWidget(QWidget):
 
     def plot_curves(self, curves_data: dict, log_dir: str = None):
         """
-        Plot training curves from extracted data.
+        从提取的数据绘制训练曲线。
 
         Args:
-            curves_data: Dictionary with keys 'train_loss', 'train_acc', 'val_loss', 'val_acc'
-            log_dir: Optional log directory path for display
+            curves_data: 包含'train_loss'、'train_acc'、'val_loss'、'val_acc'键的字典
+            log_dir: 可选的日志目录路径用于显示
         """
         if not curves_data:
             self.show_placeholder("No data to display")
@@ -123,7 +123,7 @@ class TrainingCurvesWidget(QWidget):
         self.canvas.setVisible(True)
         self.placeholder_label.setVisible(False)
 
-        # Determine which subplots to create
+        # 确定要创建哪些子图
         has_loss = 'train_loss' in curves_data or 'val_loss' in curves_data
         has_acc = 'train_acc' in curves_data or 'val_acc' in curves_data
 
@@ -142,7 +142,7 @@ class TrainingCurvesWidget(QWidget):
             self.show_placeholder("No valid metrics found")
             return
 
-        # Plot loss curves
+        # 绘制损失曲线
         if ax1 is not None:
             if 'train_loss' in curves_data:
                 steps, values = curves_data['train_loss']
@@ -157,7 +157,7 @@ class TrainingCurvesWidget(QWidget):
             ax1.legend(loc='upper right', prop=CHINESE_FONT)
             ax1.grid(True, alpha=0.3)
 
-        # Plot accuracy curves
+        # 绘制精度曲线
         if ax2 is not None:
             if 'train_acc' in curves_data:
                 steps, values = curves_data['train_acc']
@@ -175,7 +175,7 @@ class TrainingCurvesWidget(QWidget):
         self.figure.tight_layout()
         self.canvas.draw()
 
-        # Update info label
+        # 更新信息标签
         if log_dir:
             import os
             log_name = os.path.basename(log_dir)
@@ -190,7 +190,7 @@ class TrainingCurvesWidget(QWidget):
             """)
 
     def show_placeholder(self, message: str = "暂无训练曲线 No training curves"):
-        """Show placeholder message instead of plot."""
+        """显示占位符消息而不是绘图。"""
         self.canvas.setVisible(False)
         self.placeholder_label.setVisible(True)
         self.placeholder_label.setText(message)
@@ -206,5 +206,5 @@ class TrainingCurvesWidget(QWidget):
         self.figure.clear()
 
     def clear(self):
-        """Clear the plot."""
+        """清除绘图。"""
         self.show_placeholder()

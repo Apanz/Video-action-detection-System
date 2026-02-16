@@ -1,6 +1,6 @@
 """
-Results Tab for GUI
-Displays detection results organized by action category
+GUI的结果标签页
+按动作类别显示检测结果
 """
 
 import os
@@ -18,8 +18,8 @@ from pathlib import Path
 
 class ResultsTab(QWidget):
     """
-    Tab for displaying detection results
-    Shows action statistics, frame previews, and allows exporting results
+    用于显示检测结果的标签页
+    显示动作统计、帧预览并允许导出结果
     """
 
     def __init__(self, parent=None):
@@ -29,18 +29,18 @@ class ResultsTab(QWidget):
         self.init_ui()
 
     def init_ui(self):
-        """Initialize user interface"""
+        """初始化用户界面"""
         main_layout = QVBoxLayout()
         main_layout.setContentsMargins(12, 10, 12, 10)
         main_layout.setSpacing(10)
 
-        # Title
+        # 标题
         title = QLabel("📊 检测结果 Detection Results")
         title.setFont(QFont("Hiragino Sans GB", 16, QFont.Bold))
         title.setAlignment(Qt.AlignCenter)
         main_layout.addWidget(title)
 
-        # Session info group
+        # 会话信息组
         session_group = QGroupBox("会话信息 Session Info")
         session_layout = QGridLayout()
         session_layout.setSpacing(10)
@@ -59,17 +59,17 @@ class ResultsTab(QWidget):
         session_group.setLayout(session_layout)
         main_layout.addWidget(session_group)
 
-        # Splitter for table and detail view (horizontal layout)
+        # 用于表格和详情视图的分隔器（水平布局）
         splitter = QSplitter(Qt.Horizontal)
 
-        # Action statistics table
+        # 动作统计表格
         table_group = QGroupBox("动作类别统计 Action Statistics (按帧数排序)")
         table_group.setStyleSheet("QGroupBox { font-size: 12px; font-weight: bold; }")
         table_layout = QVBoxLayout()
         table_layout.setContentsMargins(12, 12, 12, 12)
         table_layout.setSpacing(10)
 
-        # Create table
+        # 创建表格
         self.stats_table = QTableWidget()
         self.stats_table.setColumnCount(5)
         self.stats_table.setHorizontalHeaderLabels([
@@ -77,16 +77,16 @@ class ResultsTab(QWidget):
             "平均置信度 Avg Conf", "操作 Actions"
         ])
 
-        # Configure table - optimize column widths and heights
+        # 配置表格 - 优化列宽和高度
         header = self.stats_table.horizontalHeader()
-        header.setSectionResizeMode(0, QHeaderView.Stretch)  # Action name - responsive
+        header.setSectionResizeMode(0, QHeaderView.Stretch)  # 动作名称 - 响应式
         header.setSectionResizeMode(1, QHeaderView.ResizeToContents)
         header.setSectionResizeMode(2, QHeaderView.ResizeToContents)
         header.setSectionResizeMode(3, QHeaderView.ResizeToContents)
         header.setSectionResizeMode(4, QHeaderView.ResizeToContents)
-        # Optimize table appearance
-        self.stats_table.verticalHeader().setDefaultSectionSize(52)  # Larger row height to fit buttons
-        self.stats_table.setMinimumWidth(350)  # Ensure minimum width to prevent text cutoff
+        # 优化表格外观
+        self.stats_table.verticalHeader().setDefaultSectionSize(52)  # 更大的行高度以适应按钮
+        self.stats_table.setMinimumWidth(350)  # 确保最小宽度以防止文本截断
         self.stats_table.setStyleSheet("""
             QTableWidget {
                 border: 2px solid rgba(189, 227, 195, 200);
@@ -124,7 +124,7 @@ class ResultsTab(QWidget):
 
         table_layout.addWidget(self.stats_table)
 
-        # Export buttons
+        # 导出按钮
         button_layout = QHBoxLayout()
         button_layout.setSpacing(6)
 
@@ -149,7 +149,7 @@ class ResultsTab(QWidget):
         table_group.setLayout(table_layout)
         splitter.addWidget(table_group)
 
-        # Action detail view
+        # 动作详情视图
         detail_group = QGroupBox("动作详情 Action Details")
         detail_group.setStyleSheet("QGroupBox { font-size: 12px; font-weight: bold; }")
         detail_layout = QVBoxLayout()
@@ -170,11 +170,11 @@ class ResultsTab(QWidget):
         """)
         detail_layout.addWidget(self.detail_label)
 
-        # Frame preview scroll area - optimize for 4-column display
+        # 帧预览滚动区域 - 优化为4列显示
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
         self.scroll_area.setMinimumHeight(400)
-        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)  # Disable horizontal scrollbar
+        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)  # 禁用水平滚动条
         self.scroll_area.setStyleSheet("""
             QScrollArea {
                 border: 2px solid rgba(189, 227, 195, 150);
@@ -199,9 +199,9 @@ class ResultsTab(QWidget):
         detail_group.setLayout(detail_layout)
         splitter.addWidget(detail_group)
 
-        # Set splitter sizes - give more space to detail for better frame preview
-        splitter.setStretchFactor(0, 5)  # Table area ~45%
-        splitter.setStretchFactor(1, 6)  # Detail area ~55%
+        # 设置分隔器大小 - 为详情区域分配更多空间以便更好地预览帧
+        splitter.setStretchFactor(0, 5)  # 表格区域 ~45%
+        splitter.setStretchFactor(1, 6)  # 详情区域 ~55%
 
         main_layout.addWidget(splitter)
         self.setLayout(main_layout)
@@ -215,7 +215,7 @@ class ResultsTab(QWidget):
         """
         self.current_stats = stats
 
-        # Update session info
+        # 更新会话信息
         self.session_id_label.setText(f"会话ID: {stats.get('session_id', '-')}")
         self.video_source_label.setText(f"视频源: {stats.get('video_source', '-')}")
         start_time = stats.get('start_time', '-')
@@ -226,7 +226,7 @@ class ResultsTab(QWidget):
             f"(检测到: {stats.get('total_detected_frames', 0)})"
         )
 
-        # Update table
+        # 更新表格
         self.update_table(stats.get('actions', {}))
 
     def update_table(self, actions: dict):
@@ -239,27 +239,27 @@ class ResultsTab(QWidget):
         self.stats_table.setRowCount(len(actions))
 
         for row, (action_name, data) in enumerate(actions.items()):
-            # Action name
+            # 动作名称
             name_item = QTableWidgetItem(action_name)
             name_item.setFont(QFont("Hiragino Sans GB", 10))
             self.stats_table.setItem(row, 0, name_item)
 
-            # Frame count
+            # 帧数
             count_item = QTableWidgetItem(str(data['count']))
             count_item.setTextAlignment(Qt.AlignCenter)
             self.stats_table.setItem(row, 1, count_item)
 
-            # Percentage
+            # 占比
             percentage_item = QTableWidgetItem(f"{data['percentage']:.1f}%")
             percentage_item.setTextAlignment(Qt.AlignCenter)
             self.stats_table.setItem(row, 2, percentage_item)
 
-            # Average confidence
+            # 平均置信度
             conf_item = QTableWidgetItem(f"{data['confidence_avg']:.2f}")
             conf_item.setTextAlignment(Qt.AlignCenter)
             self.stats_table.setItem(row, 3, conf_item)
 
-            # Actions button
+            # 操作按钮
             btn_widget = QWidget()
             btn_widget.setStyleSheet("background: transparent;")
             btn_layout = QHBoxLayout(btn_widget)
@@ -338,20 +338,20 @@ class ResultsTab(QWidget):
         action_data = self.current_stats['actions'][action_name]
         self.current_action_detail = action_name
 
-        # Update detail label
+        # 更新详情标签
         self.detail_label.setText(
             f"{action_name} | 帧:{action_data['count']} | 占比:{action_data['percentage']:.1f}% | "
             f"置信度:{action_data['confidence_avg']:.2f} | 已保存:{action_data['saved_frames']}"
         )
 
-        # Clear previous preview
-        # Remove all widgets from layout
+        # 清除之前的预览
+        # 从布局中移除所有小部件
         while self.frame_preview_layout.count():
             item = self.frame_preview_layout.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
 
-        # Add frame previews
+        # 添加帧预览
         frames = action_data.get('frames', [])
         if not frames:
             no_frames_label = QLabel("无保存的帧 No saved frames")
@@ -359,15 +359,15 @@ class ResultsTab(QWidget):
             no_frames_label.setStyleSheet("color: #888; font-size: 11px;")
             self.frame_preview_layout.addWidget(no_frames_label, 0, 0)
         else:
-            # Display frames in a grid (4 columns for optimal display)
+            # 以网格形式显示帧（4列以获得最佳显示效果）
             cols = 4
             for idx, frame_info in enumerate(frames):
                 row_idx = idx // cols
                 col_idx = idx % cols
 
-                # Create frame widget
+                # 创建帧小部件
                 frame_widget = self.create_frame_preview(frame_info)
-                # Set column span to ensure proper layout
+                # 设置列跨度以确保正确的布局
                 self.frame_preview_layout.addWidget(frame_widget, row_idx, col_idx)
 
     def create_frame_preview(self, frame_info: dict) -> QWidget:
@@ -385,12 +385,12 @@ class ResultsTab(QWidget):
         layout.setSpacing(6)
         layout.setContentsMargins(8, 8, 8, 8)
 
-        # Frame image - adjust size for better 4-column layout
+        # 帧图像 - 调整大小以获得更好的4列布局
         frame_path = frame_info.get('frame_path', '')
         if frame_path and os.path.exists(frame_path):
             pixmap = QPixmap(frame_path)
-            # Calculate optimal size based on scroll area width
-            # This ensures frames fit properly in 4 columns without horizontal scroll
+            # 根据滚动区域宽度计算最佳大小
+            # 这确保帧在4列中正确适配而无需水平滚动
             scaled_pixmap = pixmap.scaled(160, 160, Qt.KeepAspectRatio, Qt.SmoothTransformation)
 
             image_label = QLabel()
@@ -404,7 +404,7 @@ class ResultsTab(QWidget):
             placeholder.setStyleSheet("background: #f0f0f0; border: 1px solid #ccc; font-size: 9px;")
             layout.addWidget(placeholder)
 
-        # Frame info
+        # 帧信息
         frame_idx = frame_info.get('frame_idx', 0)
         timestamp = frame_info.get('timestamp', 0)
         confidence = frame_info.get('confidence', 0)
@@ -414,7 +414,7 @@ class ResultsTab(QWidget):
         info_label.setFont(QFont("Arial", 9))
         layout.addWidget(info_label)
 
-        # View button
+        # 查看按钮
         view_btn = QPushButton("查看")
         view_btn.setMinimumHeight(30)
         view_btn.setMinimumWidth(60)  # Ensure text fits
@@ -437,7 +437,7 @@ class ResultsTab(QWidget):
         view_btn.clicked.connect(lambda checked, p=frame_path: self.show_full_frame(p))
         layout.addWidget(view_btn)
 
-        # Card style
+        # 卡片样式
         widget.setStyleSheet("""
             QWidget {
                 background: rgba(255, 255, 255, 200);
@@ -463,18 +463,18 @@ class ResultsTab(QWidget):
             QMessageBox.warning(self, "错误 Error", "帧文件不存在 Frame file does not exist")
             return
 
-        # Create dialog to show full frame
+        # 创建对话框以显示完整帧
         dialog = QDialog(self)
         dialog.setWindowTitle(f"帧预览 Frame Preview - {os.path.basename(frame_path)}")
         dialog.setMinimumSize(600, 400)
 
         layout = QVBoxLayout(dialog)
 
-        # Create scroll area for large images
+        # 为大图像创建滚动区域
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
 
-        # Load and display image
+        # 加载并显示图像
         pixmap = QPixmap(frame_path)
         label = QLabel()
         label.setPixmap(pixmap)
@@ -483,7 +483,7 @@ class ResultsTab(QWidget):
         scroll_area.setWidget(label)
         layout.addWidget(scroll_area)
 
-        # Add close button
+        # 添加关闭按钮
         close_btn = QPushButton("关闭 Close")
         close_btn.clicked.connect(dialog.accept)
         layout.addWidget(close_btn)
@@ -577,11 +577,11 @@ class ResultsTab(QWidget):
 
         if dir_path:
             try:
-                # Create action subdirectory
+                # 创建动作子目录
                 action_dir = os.path.join(dir_path, action_name.replace('/', '_'))
                 os.makedirs(action_dir, exist_ok=True)
 
-                # Copy frames
+                # 复制帧
                 import shutil
                 for frame_info in frames:
                     frame_path = frame_info.get('frame_path', '')
@@ -618,7 +618,7 @@ class ResultsTab(QWidget):
             self.total_frames_label.setText("总帧数: 0")
             self.detail_label.setText("选择动作查看详情 Select an action")
 
-            # Clear frame preview
+            # 清除帧预览
             while self.frame_preview_layout.count():
                 item = self.frame_preview_layout.takeAt(0)
                 if item.widget():

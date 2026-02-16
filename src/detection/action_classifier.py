@@ -1,6 +1,6 @@
 """
-Action Classifier Module
-Integrates trained TSN model for action classification
+动作分类器模块
+集成训练好的TSN模型进行动作分类
 """
 
 import os
@@ -12,23 +12,23 @@ from typing import List, Dict, Optional, Tuple
 
 class ActionClassifier:
     """
-    Action classifier using trained TSN models
+    使用训练好的TSN模型的动作分类器
     """
 
     def __init__(self, checkpoint_path: str, device: str = 'auto',
                  num_segments: int = 3, frames_per_segment: int = 5,
                  backbone: str = 'resnet18'):
         """
-        Initialize action classifier
+        初始化动作分类器
 
         Args:
-            checkpoint_path: Path to trained model checkpoint
-            device: 'cpu', 'cuda', or 'auto'
-            num_segments: Number of temporal segments
-            frames_per_segment: Frames per segment
-            backbone: Backbone architecture
+            checkpoint_path: 训练好的模型检查点路径
+            device: 'cpu'、'cuda' 或 'auto'
+            num_segments: 时序片段数量
+            frames_per_segment: 每片段帧数
+            backbone: 骨干网络架构
         """
-        # Set device
+        # 设置设备
         if device == 'auto':
             self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         else:
@@ -36,17 +36,17 @@ class ActionClassifier:
 
         print(f"Loading action classifier on {self.device}...")
 
-        # Load checkpoint
+        # 加载检查点
         checkpoint = torch.load(checkpoint_path, map_location=self.device)
 
-        # Get model configuration
+        # 获取模型配置
         if 'model_state_dict' in checkpoint:
-            # Extract info from checkpoint
-            # For UCF101
+            # 从检查点提取信息
+            # 对于UCF101
             num_classes = 101
             dataset_name = 'ucf101'
 
-            # Try to get from checkpoint metadata
+            # 尝试从检查点元数据获取
             if 'config' in checkpoint:
                 config = checkpoint['config']
                 num_classes = config.get('num_classes', num_classes)
@@ -54,8 +54,8 @@ class ActionClassifier:
                 num_segments = config.get('num_segments', num_segments)
                 frames_per_segment = config.get('frames_per_segment', frames_per_segment)
             else:
-                # CRITICAL: Infer backbone from checkpoint structure
-                # Count blocks in each layer
+                # 关键：从检查点结构推断骨干网络
+                # 计算每层的块数
                 state_dict = checkpoint['model_state_dict']
                 blocks = {}
                 for key in state_dict.keys():
@@ -64,7 +64,7 @@ class ActionClassifier:
                         block_idx = int(key.split('.')[2])
                         blocks[layer_name] = max(blocks.get(layer_name, 0), block_idx + 1)
 
-                # Determine backbone based on block counts
+                # 根据块数确定骨干网络
                 total_blocks = sum(blocks.values())
                 print(f"[DEBUG classifier] Inferred blocks per layer: {dict(sorted(blocks.items()))}")
                 print(f"[DEBUG classifier] Total blocks: {total_blocks}")
@@ -73,11 +73,11 @@ class ActionClassifier:
                     backbone = 'resnet18'
                     print("[DEBUG classifier] Detected backbone: ResNet-18")
                 elif total_blocks == 16:
-                    # ResNet-34 and ResNet-50 both have 16 blocks
-                    # Check kernel size to determine block type:
-                    # BasicBlock (ResNet-34): conv1 uses 3x3 kernels
-                    # Bottleneck (ResNet-50): conv1 uses 1x1 kernels
-                    # Find a conv1.weight in layer1 and check its shape
+                    # ResNet-34和ResNet-50都有16个块
+                    # 检查内核大小以确定块类型：
+                    # BasicBlock（ResNet-34）：conv1使用3x3内核
+                    # Bottleneck（ResNet-50）：conv1使用1x1内核
+                    # 在layer1中查找conv1.weight并检查其形状
                     conv1_key = None
                     for key in state_dict.keys():
                         if 'backbone.layer1.0.conv1.weight' in key:
@@ -105,59 +105,59 @@ class ActionClassifier:
                     print(f"[WARNING classifier] Unknown architecture with {total_blocks} blocks, using default: {backbone}")
 
         else:
-            # If checkpoint doesn't have metadata, use defaults
+            # 如果检查点没有元数据，使用默认值
             num_classes = 101
             dataset_name = 'ucf101'
 
-        # Create model
+        # 创建模型
         from core import create_model
         self.model = create_model(
             dataset=dataset_name,
             backbone=backbone,
-            pretrained=False,  # We're loading trained weights
+            pretrained=False,  # 我们正在加载训练好的权重
             num_segments=num_segments,
             frames_per_segment=frames_per_segment
         )
 
-        # DEBUG: Print checkpoint keys
+        # 调试：打印检查点键
         print(f"[DEBUG classifier] Checkpoint keys: {checkpoint.keys()}")
         if 'model_state_dict' in checkpoint:
             print(f"[DEBUG classifier] Checkpoint has model_state_dict with {len(checkpoint['model_state_dict'])} keys")
-            # Print first 10 keys
+            # 打印前10个键
             for i, key in enumerate(list(checkpoint['model_state_dict'].keys())[:10]):
                 print(f"  {i}: {key}")
             print("  ...")
         elif 'state_dict' in checkpoint:
             print(f"[DEBUG classifier] Checkpoint has state_dict with {len(checkpoint['state_dict'])} keys")
-            # Print first 10 keys
+            # 打印前10个键
             for i, key in enumerate(list(checkpoint['state_dict'].keys())[:10]):
                 print(f"  {i}: {key}")
             print("  ...")
         else:
             print(f"[DEBUG classifier] Checkpoint has {len(checkpoint)} keys (direct)")
-            # Print first 10 keys
+            # 打印前10个键
             for i, key in enumerate(list(checkpoint.keys())[:10]):
                 print(f"  {i}: {key}")
             print("  ...")
 
-        # DEBUG: Print model keys
+        # 调试：打印模型键
         model_state_dict = self.model.state_dict()
         print(f"[DEBUG classifier] Model has {len(model_state_dict)} keys")
-        # Print first 10 keys
+        # 打印前10个键
         for i, key in enumerate(list(model_state_dict.keys())[:10]):
             print(f"  {i}: {key}")
         print("  ...")
 
-        # Load weights with strict=False to see what's missing
+        # 使用strict=False加载权重以查看缺失的内容
         if 'model_state_dict' in checkpoint:
             load_result = self.model.load_state_dict(checkpoint['model_state_dict'], strict=False)
         elif 'state_dict' in checkpoint:
             load_result = self.model.load_state_dict(checkpoint['state_dict'], strict=False)
         else:
-            # Direct loading
+            # 直接加载
             load_result = self.model.load_state_dict(checkpoint, strict=False)
 
-        # DEBUG: Print load result
+        # 调试：打印加载结果
         print(f"[DEBUG classifier] Load result: {load_result}")
         print(f"[DEBUG classifier] Missing keys: {len(load_result.missing_keys)}")
         if load_result.missing_keys:
@@ -166,7 +166,7 @@ class ActionClassifier:
         if load_result.unexpected_keys:
             print(f"[DEBUG classifier] Unexpected keys (first 10): {load_result.unexpected_keys[:10]}")
 
-        # CRITICAL: Check if any weights contain NaN
+        # 关键：检查是否有任何权重包含NaN
         has_nan = False
         has_inf = False
         for name, param in self.model.named_parameters():
@@ -182,7 +182,7 @@ class ActionClassifier:
         if has_inf:
             print("[ERROR classifier] Model contains Inf weights! Checkpoint may be corrupted.")
 
-        # Test forward pass with dummy input
+        # 使用虚拟输入测试前向传播
         print("[DEBUG classifier] Testing forward pass with dummy input...")
         dummy_input = torch.randn(1, 3, 3, 224, 224)
         dummy_input = dummy_input.to(self.device)
@@ -193,7 +193,7 @@ class ActionClassifier:
             print(f"[DEBUG classifier] Dummy output contains NaN: {torch.isnan(dummy_output).any()}")
             print(f"[DEBUG classifier] Dummy output contains Inf: {torch.isinf(dummy_output).any()}")
 
-        # Verify weights are loaded - check first layer
+        # 验证权重已加载 - 检查第一层
         first_conv_weight = None
         first_bn_weight = None
         classifier_weight = None
@@ -224,19 +224,19 @@ class ActionClassifier:
         else:
             print("[VERIFY] Classifier weight: None")
 
-        # Check if weights look random (untrained)
-        # NOTE: Trained models with BatchNorm typically have weights with mean ≈ 0, which is normal
-        # This check was overly strict and caused false alarms. Removed to avoid confusion.
-        # The real validation is: (1) load_result shows all keys matched, (2) forward pass produces valid outputs
+        # 检查权重是否看起来随机（未训练）
+        # 注意：具有BatchNorm的训练模型通常具有均值≈0的权重，这是正常的
+        # 此检查过于严格，导致了误报。删除以避免混淆。
+        # 真正的验证是：(1) load_result显示所有键匹配，(2) 前向传播产生有效输出
         if first_conv_weight is not None and abs(first_conv_weight.mean()) < 0.001:
-            # Only warn if mean is EXTREMELY close to 0 (which might indicate zero initialization)
+            # 仅当均值极度接近0时警告（这可能表示零初始化）
             print("[WARNING] First layer weights have very small mean. Verify checkpoint is trained.")
 
-        # Set to evaluation mode
+        # 设置为评估模式
         self.model.eval()
         self.model.to(self.device)
 
-        # Class names for UCF101
+        # UCF101类别名称
         self.ucf101_classes = [
             'ApplyEyeMakeup', 'ApplyLipstick', 'Archery', 'BabyCrawling', 'BalanceBeam',
             'BandMarching', 'BaseballPitch', 'Basketball', 'BasketballDunk', 'BenchPress',
@@ -273,15 +273,15 @@ class ActionClassifier:
 
     def classify(self, frames: torch.Tensor) -> Tuple[str, float]:
         """
-        Classify action from temporal frames
+        从时序帧中分类动作
 
         Args:
-            frames: Input tensor (1, T, C, H, W)
+            frames: 输入张量 (1, T, C, H, W)
 
         Returns:
-            Tuple of (action_label, confidence)
+            (action_label, confidence) 元组
         """
-        # DEBUG: Check model parameters once for NaN
+        # DEBUG: 检查模型参数是否包含NaN
         if not hasattr(self, '_checked_params'):
             print("[DEBUG classifier] Checking model parameters for NaN...")
             for name, param in self.model.named_parameters():
@@ -295,14 +295,14 @@ class ActionClassifier:
             # Move to device
             frames = frames.to(self.device)
 
-            # DEBUG: Log input info
+            # DEBUG: 记录输入信息
             print(f"[DEBUG classifier] Input tensor shape: {frames.shape}")
             print(f"[DEBUG classifier] Input tensor range: [{frames.min():.4f}, {frames.max():.4f}]")
 
             # Forward pass
             outputs = self.model(frames)
 
-            # DEBUG: Log model output
+            # DEBUG: 记录模型输出
             print(f"[DEBUG classifier] Model output shape: {outputs.shape}")
             print(f"[DEBUG classifier] Model output range: min={outputs.min():.4f}, max={outputs.max():.4f}")
 
@@ -311,7 +311,7 @@ class ActionClassifier:
                 print("[WARNING classifier] Model outputs contain NaN or Inf values!")
                 print(f"[WARNING classifier] NaN count: {torch.isnan(outputs).sum()}")
                 print(f"[WARNING classifier] Inf count: {torch.isinf(outputs).sum()}")
-                # Return safe fallback
+                # 返回安全的回退值
                 return "Unknown", 0.0
 
             # Get probabilities
@@ -319,7 +319,7 @@ class ActionClassifier:
                 probs = torch.softmax(outputs, dim=1)
                 probs = probs.cpu().numpy()[0]  # Remove batch dim
 
-                # DEBUG: Log probabilities
+                # DEBUG: 记录概率
                 print(f"[DEBUG classifier] Probabilities shape: {probs.shape}")
                 print(f"[DEBUG classifier] Probabilities range: [{probs.min():.4f}, {probs.max():.4f}]")
                 print(f"[DEBUG classifier] Probabilities sum: {probs.sum():.4f}")
@@ -327,23 +327,23 @@ class ActionClassifier:
                 print(f"[ERROR classifier] Softmax failed: {e}")
                 return "Unknown", 0.0
 
-            # Get top prediction
+            # 获取最佳预测
             top_idx = np.argmax(probs)
             confidence = float(probs[top_idx])
             action_label = self.ucf101_classes[top_idx]
 
-            # DEBUG: Log prediction
+            # DEBUG: 记录预测
             print(f"[DEBUG classifier] Predicted action: {action_label} (index: {top_idx})")
             print(f"[DEBUG classifier] Confidence: {confidence}")
 
-            # Apply smoothing
+            # 应用平滑处理
             self.prediction_history.append((action_label, confidence))
             if len(self.prediction_history) > self.smoothing_window:
                 self.prediction_history.pop(0)
 
-            # Smooth prediction
+            # 平滑预测
             if len(self.prediction_history) > 1:
-                # Use most common action with average confidence
+                # 使用最常见的动作和平均置信度
                 action_counts = {}
                 total_confidence = {}
 
@@ -351,7 +351,7 @@ class ActionClassifier:
                     action_counts[action] = action_counts.get(action, 0) + 1
                     total_confidence[action] = total_confidence.get(action, 0) + conf
 
-                # Get action with highest count
+                # 获取计数最高的动作
                 best_action = max(action_counts, key=action_counts.get)
                 avg_confidence = total_confidence[best_action] / action_counts[best_action]
 
@@ -383,7 +383,7 @@ class ActionClassifier:
             # VALIDATION: Check for NaN or Inf
             if torch.isnan(outputs).any() or torch.isinf(outputs).any():
                 print("[WARNING classifier] Model outputs contain NaN or Inf values!")
-                # Return uniform distribution
+                # 返回均匀分布
                 num_classes = len(self.ucf101_classes)
                 return np.ones(num_classes) / num_classes
 
@@ -407,7 +407,7 @@ class SimpleClassifier:
         """Initialize simple classifier"""
         self.action_names = ["Unknown"]
         self.is_dummy = True
-        # UCF101 class names for compatibility
+        # UCF101类别名称以保持兼容性
         self.ucf101_classes = [
             'ApplyEyeMakeup', 'ApplyLipstick', 'Archery', 'BabyCrawling', 'BalanceBeam',
             'BandMarching', 'BaseballPitch', 'Basketball', 'BasketballDunk', 'BenchPress',
@@ -429,7 +429,7 @@ class SimpleClassifier:
         ]
 
     def classify(self, frames: torch.Tensor) -> Tuple[str, float]:
-        """Dummy classification - returns unknown"""
+        """虚拟分类 - 返回未知"""
         return "Unknown", 0.0
 
     def predict_proba(self, frames: torch.Tensor) -> np.ndarray:
@@ -442,7 +442,7 @@ class SimpleClassifier:
         Returns:
             Probability array of shape (num_classes,)
         """
-        # Return uniform distribution over all classes
+        # 返回所有类别上的均匀分布
         num_classes = len(self.ucf101_classes)
         probs = np.ones(num_classes) / num_classes
         return probs
@@ -452,17 +452,17 @@ def load_classifier(checkpoint_path: str, device: str = 'auto',
                    num_segments: int = 3, frames_per_segment: int = 5,
                    backbone: str = 'resnet18') -> ActionClassifier:
     """
-    Load action classifier from checkpoint
+    从检查点加载动作分类器
 
     Args:
-        checkpoint_path: Path to checkpoint
-        device: Device to use
-        num_segments: Number of temporal segments
-        frames_per_segment: Frames per segment
-        backbone: Backbone architecture
+        checkpoint_path: 检查点路径
+        device: 要使用的设备
+        num_segments: 时序片段数量
+        frames_per_segment: 每片段帧数
+        backbone: 骨干网络架构
 
     Returns:
-        ActionClassifier instance
+        ActionClassifier 实例
     """
     if not os.path.exists(checkpoint_path):
         print(f"Checkpoint not found: {checkpoint_path}")

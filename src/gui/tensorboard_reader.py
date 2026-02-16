@@ -10,7 +10,7 @@ import importlib
 from collections import defaultdict
 from typing import Dict, Optional, Tuple
 
-# Try importing TensorBoard with better error handling
+# 尝试导入TensorBoard并进行更好的错误处理
 HAS_TORCH_TB = False
 TORCH_TB_ERROR = None
 _event_accumulator = None
@@ -25,10 +25,10 @@ except ImportError as e:
 
 def check_tensorboard_available() -> Tuple[bool, str]:
     """
-    Check if TensorBoard is available and return diagnostic info.
+    检查TensorBoard是否可用并返回诊断信息。
 
     Returns:
-        Tuple of (is_available, diagnostic_message)
+        (is_available, diagnostic_message)元组
     """
     if HAS_TORCH_TB and _event_accumulator is not None:
         try:
@@ -38,7 +38,7 @@ def check_tensorboard_available() -> Tuple[bool, str]:
         except ImportError:
             return True, "TensorBoard is available"
 
-    # Try to get more diagnostic info
+    # 尝试获取更多诊断信息
     tb_spec = importlib.util.find_spec("tensorboard")
     if tb_spec is None:
         return False, (
@@ -59,14 +59,14 @@ def check_tensorboard_available() -> Tuple[bool, str]:
 
 def extract_scalars_from_log_dir(log_dir: str) -> Dict[str, Tuple[list, list]]:
     """
-    Extract scalar data from TensorBoard log directory.
+    从TensorBoard日志目录提取标量数据。
 
     Args:
-        log_dir: Path to TensorBoard log directory containing events.out.tfevents files
+        log_dir: 包含events.out.tfevents文件的TensorBoard日志目录路径
 
     Returns:
-        Dictionary with metric names as keys, each containing (steps, values) tuple
-        Example: {
+        以指标名称为键的字典，每个包含(steps, values)元组
+        示例: {
             'train/loss': ([0, 1, 2, ...], [2.5, 2.1, 1.8, ...]),
             'val/acc': ([0, 1, 2, ...], [0.45, 0.52, 0.58, ...])
         }
@@ -82,17 +82,17 @@ def extract_scalars_from_log_dir(log_dir: str) -> Dict[str, Tuple[list, list]]:
 
     scalar_data = defaultdict(lambda: ([], []))
 
-    # Find all event files in directory
+    # 查找目录中的所有事件文件
     event_files = glob.glob(os.path.join(log_dir, 'events.out.tfevents*'))
 
     if not event_files:
         raise ValueError(f"No TensorBoard event files found in {log_dir}")
 
-    # Load event data using EventAccumulator
+    # 使用EventAccumulator加载事件数据
     ea = _event_accumulator.EventAccumulator(log_dir)
     ea.Reload()
 
-    # Extract scalar data
+    # 提取标量数据
     tags = ea.Tags()['scalars']
 
     for tag in tags:
@@ -106,13 +106,13 @@ def extract_scalars_from_log_dir(log_dir: str) -> Dict[str, Tuple[list, list]]:
 
 def get_training_curves(log_dir: str) -> Optional[Dict]:
     """
-    Extract training and validation loss/accuracy curves from log directory.
+    从日志目录提取训练和验证的损失/精度曲线。
 
     Args:
-        log_dir: Path to TensorBoard log directory
+        log_dir: TensorBoard日志目录路径
 
     Returns:
-        Dictionary with extracted curves, or None if failed
+        包含提取曲线的字典，失败时为None
         {
             'train_loss': (steps, values),
             'train_acc': (steps, values),
@@ -134,25 +134,25 @@ def get_training_curves(log_dir: str) -> Optional[Dict]:
         return result if result else None
 
     except ImportError as e:
-        # Re-raise ImportError so caller can handle TensorBoard availability
+        # 重新抛出ImportError以便调用者可以处理TensorBoard可用性
         raise
     except Exception as e:
         import traceback
         error_details = traceback.format_exc()
         print(f"Error extracting training curves:\n{error_details}")
-        # Return None to indicate failure, but also log the full error
+        # 返回None以指示失败，但也记录完整错误
         return None
 
 
 def validate_log_directory(log_dir: str) -> Tuple[bool, str]:
     """
-    Validate that a directory contains TensorBoard log files.
+    验证目录是否包含TensorBoard日志文件。
 
     Args:
-        log_dir: Path to check
+        log_dir: 要检查的路径
 
     Returns:
-        Tuple of (is_valid, error_message)
+        (is_valid, error_message)元组
     """
     if not os.path.exists(log_dir):
         return False, "Directory does not exist"

@@ -1,6 +1,6 @@
 """
-Main Application Window
-Video Action Detection GUI with glassmorphism design
+主应用窗口
+带有玻璃拟态设计的视频动作识别GUI
 """
 
 import sys
@@ -16,9 +16,9 @@ from .results_tab import ResultsTab
 from .model_management_tab import ModelManagementTab
 
 
-# Load custom font
+# 加载自定义字体
 def load_custom_font():
-    """Load custom font from resources"""
+    """从资源加载自定义字体"""
     font_path = os.path.join(os.path.dirname(__file__), 'resources', 'font', 'AaFengKuangYuanShiRen', 'AaFengKuangYuanShiRen-2.ttf')
     font_id = QFontDatabase.addApplicationFont(font_path)
     if font_id < 0:
@@ -28,15 +28,15 @@ def load_custom_font():
 
 
 class IconProvider:
-    """Provider for UI icons with emoji fallbacks"""
+    """带有emoji回退的UI图标提供器"""
 
     def __init__(self):
         self.icons = {}
         self._init_icons()
 
     def _init_icons(self):
-        """Initialize icons using emoji as fallback"""
-        # Using emojis as icons (could be replaced with actual icon files)
+        """使用emoji作为回退初始化图标"""
+        # 使用emoji作为图标（可以被实际图标文件替换）
         self.emoji_map = {
             'camera': '📷',
             'video': '🎥',
@@ -52,39 +52,39 @@ class IconProvider:
         }
 
     def get_emoji(self, name):
-        """Get emoji for icon name"""
+        """获取图标名称的emoji"""
         return self.emoji_map.get(name, '')
 
 
 class MainWindow(QMainWindow):
     """
-    Main application window for Video Action Detection
+    视频动作识别的主应用窗口
     """
 
     def __init__(self):
         super().__init__()
         self.setWindowTitle("视频行为识别系统 - Video Action Detection")
-        self.setMinimumSize(1280, 850)  # Increased minimum size to accommodate larger control panel
+        self.setMinimumSize(1280, 850)  # 增加最小尺寸以适应更大的控制面板
         self.resize(1550, 1050)
 
-        # Load custom font
+        # 加载自定义字体
         self.custom_font_family = load_custom_font()
 
-        # Initialize icon provider
+        # 初始化图标提供器
         self.icon_provider = IconProvider()
 
-        # Apply glassmorphism style
+        # 应用玻璃拟态样式
         self._apply_glassmorphism_style()
 
-        # Initialize UI
+        # 初始化UI
         self.init_ui()
 
-        # Initialize status bar
+        # 初始化状态栏
         self.init_status_bar()
 
     def init_ui(self):
-        """Initialize user interface"""
-        # Create central widget and layout
+        """初始化用户界面"""
+        # 创建中央小部件和布局
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
 
@@ -92,15 +92,15 @@ class MainWindow(QMainWindow):
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
 
-        # Create header
+        # 创建头部
         header_widget = self._create_header()
         main_layout.addWidget(header_widget)
 
-        # Create tab widget
+        # 创建标签页小部件
         self.tab_widget = QTabWidget()
         self.tab_widget.setObjectName("main_tab_widget")
 
-        # Add tabs
+        # 添加标签页
         self.detection_tab = DetectionTab()
         self.tab_widget.addTab(self.detection_tab, "实时检测 Real-time Detection")
 
@@ -113,12 +113,12 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(self.tab_widget)
 
     def _create_header(self):
-        """Create application header"""
+        """创建应用头部"""
         header = QWidget()
         header.setObjectName("header_widget")
         header_layout = QHBoxLayout(header)
 
-        # Title with icon
+        # 带图标的标题
         title_label = QLabel(f"{self.icon_provider.get_emoji('video')} 视频行为识别系统")
         title_label.setObjectName("header_title")
         if self.custom_font_family:
@@ -132,7 +132,7 @@ class MainWindow(QMainWindow):
 
         header_layout.addStretch()
 
-        # Version info
+        # 版本信息
         version_label = QLabel(f"v2.1 - Optimized {self.icon_provider.get_emoji('check')}")
         version_label.setObjectName("header_version")
         version_label.setFont(QFont("Arial", 10))
@@ -143,14 +143,14 @@ class MainWindow(QMainWindow):
         return header
 
     def init_status_bar(self):
-        """Initialize status bar"""
+        """初始化状态栏"""
         self.status_bar = QStatusBar()
         self.status_bar.setObjectName("main_status_bar")
         self.status_bar.showMessage("就绪 Ready")
         self.setStatusBar(self.status_bar)
 
     def _apply_glassmorphism_style(self):
-        """Apply glassmorphism style sheet"""
+        """应用玻璃拟态样式表"""
         style = """
         /* 全局背景色 - #BDE3C3渐变 */
         QMainWindow {
@@ -456,8 +456,8 @@ class MainWindow(QMainWindow):
         self.setStyleSheet(style)
 
     def closeEvent(self, event):
-        """Handle window close event"""
-        # Stop video thread if running
+        """处理窗口关闭事件"""
+        # 如果正在运行则停止视频线程
         if hasattr(self.detection_tab, 'video_thread'):
             if self.detection_tab.video_thread and self.detection_tab.video_thread.isRunning():
                 self.detection_tab.stop_detection()
@@ -466,13 +466,13 @@ class MainWindow(QMainWindow):
 
 
 def main():
-    """Main entry point"""
+    """主入口点"""
     app = QApplication(sys.argv)
 
-    # Set app style
+    # 设置应用样式
     app.setStyle('Fusion')
 
-    # Create and show main window
+    # 创建并显示主窗口
     window = MainWindow()
     window.show()
 

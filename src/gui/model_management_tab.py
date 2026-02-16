@@ -28,7 +28,7 @@ class ModelScanThread(QThread):
         self.models_dir = models_dir
 
     def run(self):
-        """Run model scan in background thread"""
+        """在后台线程中运行模型扫描"""
         try:
             categories = ModelMetadata.scan_models_directory(self.models_dir)
             self.finished.emit(categories)
@@ -51,33 +51,33 @@ class ModelManagementTab(QWidget):
         self.refresh_model_list()
 
     def init_ui(self):
-        """Initialize user interface"""
+        """初始化用户界面"""
         main_layout = QVBoxLayout()
-        main_layout.setContentsMargins(12, 8, 12, 10)  # MODIFIED: Adjusted top margin to 8px for better spacing
+        main_layout.setContentsMargins(12, 8, 12, 10)  # 修改：调整上边距为8px以获得更好的间距
         main_layout.setSpacing(10)
 
-        # Title
+        # 标题
         title = QLabel("⚙️ 模型管理 Model Management")
         title.setFont(QFont("Hiragino Sans GB", 16, QFont.Bold))
         title.setAlignment(Qt.AlignCenter)
-        # MODIFIED: Set fixed height to reduce vertical space (16px font + ~10px padding = ~26px minimum, 32px for comfort)
+        # 修改：设置固定高度以减少垂直空间（16px字体 + ~10px内边距 = ~26px最小值，32px更舒适）
         title.setMinimumHeight(32)
         title.setMaximumHeight(32)
         main_layout.addWidget(title)
-        # MODIFIED: Use addSpacing for precise control (increased to 6px for better spacing)
+        # 修改：使用addSpacing进行精确控制（增加到6px以获得更好的间距）
         main_layout.addSpacing(6)
 
-        # Splitter for list and details
+        # 用于列表和详情的分隔器
         splitter = QSplitter(Qt.Horizontal)
 
-        # Left panel - Model list (simplified, more focused)
+        # 左侧面板 - 模型列表（简化，更聚焦）
         left_panel = QWidget()
-        left_panel.setMaximumWidth(500)  # Increased left panel width for better list display
+        left_panel.setMaximumWidth(500)  # 增加左侧面板宽度以更好地显示列表
         left_layout = QVBoxLayout(left_panel)
         left_layout.setContentsMargins(0, 0, 0, 0)
-        left_layout.setSpacing(6)  # Reduced spacing for more compact layout
+        left_layout.setSpacing(6)  # 减少间距以获得更紧凑的布局
 
-        # List header with buttons
+        # 带按钮的列表头部
         list_header = QHBoxLayout()
         list_header.setSpacing(8)
 
@@ -87,7 +87,7 @@ class ModelManagementTab(QWidget):
 
         list_header.addStretch()
 
-        # Define secondary button style (refresh, upload, set default)
+        # 定义次要按钮样式（刷新、上传、设为默认）
         secondary_button_style = """
             QPushButton {
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
@@ -109,7 +109,7 @@ class ModelManagementTab(QWidget):
             }
         """
 
-        # Define danger button style (delete)
+        # 定义危险按钮样式（删除）
         danger_button_style = """
             QPushButton {
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
@@ -145,7 +145,7 @@ class ModelManagementTab(QWidget):
 
         left_layout.addLayout(list_header)
 
-        # Model list widget
+        # 模型列表小部件
         self.model_list_widget = QListWidget()
         self.model_list_widget.setIconSize(QSize(16, 16))
         self.model_list_widget.itemClicked.connect(self.on_model_selected)
@@ -171,7 +171,7 @@ class ModelManagementTab(QWidget):
         """)
         left_layout.addWidget(self.model_list_widget)
 
-        # Action buttons for selected model - full width layout
+        # 所选模型的操作按钮 - 全宽布局
         action_layout = QHBoxLayout()
         action_layout.setSpacing(6)
 
@@ -191,7 +191,7 @@ class ModelManagementTab(QWidget):
 
         left_layout.addLayout(action_layout)
 
-        # Load model button - moved to left panel for better accessibility
+        # 加载模型按钮 - 移至左侧面板以便更好地访问
         self.load_model_button = QPushButton("加载此模型 Load Model")
         self.load_model_button.setEnabled(False)
         self.load_model_button.clicked.connect(self.load_model_for_detection)
@@ -218,12 +218,12 @@ class ModelManagementTab(QWidget):
         """)
         left_layout.addWidget(self.load_model_button)
 
-        # Model details - compact view
+        # 模型详情 - 紧凑视图
         details_title = QLabel("模型详情 Details")
         details_title.setFont(QFont("Hiragino Sans GB", 11, QFont.Bold))
         left_layout.addWidget(details_title)
 
-        # Compact details view - reduced height
+        # 紧凑详情视图 - 减少高度
         details_group = QGroupBox()
         details_group.setMaximumHeight(280)  # Limit height to save space
         details_group.setStyleSheet("""
@@ -241,7 +241,7 @@ class ModelManagementTab(QWidget):
         details_layout.setSpacing(4)
         details_layout.setContentsMargins(6, 6, 6, 6)
 
-        # Create detail labels - compact format (2 columns)
+        # 创建详情标签 - 紧凑格式（2列）
         self.filename_label = QLabel("文件: -")
         self.path_label = QLabel("路径: -")
         self.size_label = QLabel("大小: -")
@@ -254,11 +254,11 @@ class ModelManagementTab(QWidget):
         self.frames_label = QLabel("每段帧数: -")
         self.total_frames_label = QLabel("总帧数: -")
 
-        # Training info - compact (2 columns)
+        # 训练信息 - 紧凑（2列）
         self.epochs_label = QLabel("轮数: -")
         self.accuracy_label = QLabel("精度: -")
 
-        # Status - full width
+        # 状态 - 全宽
         self.status_label = QLabel("状态: -")
         self.status_label.setFont(QFont("Hiragino Sans GB", 9, QFont.Bold))
         self.status_label.setStyleSheet("""
@@ -269,7 +269,7 @@ class ModelManagementTab(QWidget):
             }
         """)
 
-        # Add labels to layout in 2 columns for compact display
+        # 以2列形式将标签添加到布局中以紧凑显示
         labels = [self.filename_label, self.path_label, self.size_label,
                  self.modified_label, self.backbone_label, self.dataset_label,
                  self.segments_label, self.frames_label, self.total_frames_label,
@@ -280,7 +280,7 @@ class ModelManagementTab(QWidget):
             col = idx % 2
             details_layout.addWidget(label, row, col)
 
-        # Status label on its own row
+        # 状态标签占一行
         details_layout.addWidget(self.status_label, 6, 0, 1, 2)
 
         details_group.setLayout(details_layout)
@@ -288,20 +288,20 @@ class ModelManagementTab(QWidget):
 
         splitter.addWidget(left_panel)
 
-        # Right panel - Description and curves tabbed view (expanded)
+        # 右侧面板 - 描述和曲线选项卡视图（展开）
         right_panel = QWidget()
         right_layout = QVBoxLayout(right_panel)
         right_layout.setContentsMargins(0, 0, 0, 0)
-        right_layout.setSpacing(6)  # Reduced spacing for more compact layout
+        right_layout.setSpacing(6)  # 减少间距以获得更紧凑的布局
 
-        # Description and curves tabbed view
+        # 描述和曲线选项卡视图
         tab_label = QLabel("详情与曲线 Details & Curves:")
         tab_label.setFont(QFont("Hiragino Sans GB", 11, QFont.Bold))  # Reduced font size
         right_layout.addWidget(tab_label)
 
         self.details_tab_widget = QTabWidget()
 
-        # Description tab
+        # 描述选项卡
         desc_tab = QWidget()
         desc_layout = QVBoxLayout(desc_tab)
         desc_layout.setContentsMargins(5, 5, 5, 5)
@@ -310,16 +310,16 @@ class ModelManagementTab(QWidget):
         desc_layout.addWidget(self.description_text)
         self.details_tab_widget.addTab(desc_tab, "描述")
 
-        # Training curves tab
+        # 训练曲线选项卡
         curves_tab = QWidget()
         curves_layout = QVBoxLayout(curves_tab)
         curves_layout.setContentsMargins(5, 5, 5, 5)
 
-        # Create curves widget
+        # 创建曲线小部件
         self.training_curves = TrainingCurvesWidget()
         curves_layout.addWidget(self.training_curves)
 
-        # Add button to select log directory - full width
+        # 添加按钮以选择日志目录 - 全宽
         self.select_log_button = QPushButton("选择TensorBoard日志 Select Log")
         self.select_log_button.setMinimumHeight(36)
         self.select_log_button.clicked.connect(self.select_tensorboard_log)
@@ -346,47 +346,47 @@ class ModelManagementTab(QWidget):
 
         splitter.addWidget(right_panel)
 
-        # Set splitter sizes - give more space to details & curves
+        # 设置分隔器大小 - 为详情和曲线分配更多空间
         splitter.setStretchFactor(0, 1)
         splitter.setStretchFactor(1, 3)
-        splitter.setSizes([380, 800])  # Initial sizes: left 380px, right 800px
+        splitter.setSizes([380, 800])  # 初始大小：左侧380px，右侧800px
 
         main_layout.addWidget(splitter)
         self.setLayout(main_layout)
 
     def refresh_model_list(self):
-        """Refresh the model list from disk (runs in background thread)"""
-        # Clear current list
+        """从磁盘刷新模型列表（在后台线程中运行）"""
+        # 清除当前列表
         self.model_list_widget.clear()
         self.current_models = {}
 
-        # Ensure models directory exists
+        # 确保模型目录存在
         self.models_dir.mkdir(parents=True, exist_ok=True)
 
-        # Update status to show loading
+        # 更新状态以显示正在加载
         self.status_label.setText("状态 Status: 扫描中... Scanning...")
 
-        # Start background scan thread
+        # 启动后台扫描线程
         self.scan_thread = ModelScanThread(str(self.models_dir))
         self.scan_thread.finished.connect(self._on_scan_complete)
         self.scan_thread.error.connect(self._on_scan_error)
         self.scan_thread.start()
 
     def _on_scan_complete(self, categories: dict):
-        """Handle completion of model scan"""
-        # Add models to list
+        """处理模型扫描完成"""
+        # 将模型添加到列表
         for category, models in categories.items():
             if not models:
                 continue
 
-            # Add category header with distinct background colors
+            # 添加带有不同背景颜色的类别标题
             category_item = QListWidgetItem(f"[{category.upper()}]")
             category_item.setFlags(Qt.NoItemFlags)
             font = category_item.font()
             font.setBold(True)
             category_item.setFont(font)
 
-            # Add color-coded backgrounds for better visual separation
+            # 添加颜色编码的背景以获得更好的视觉分隔
             if category == 'ucf101':
                 category_item.setBackground(QColor(220, 235, 220))  # Light green
             elif category == 'custom':
@@ -396,37 +396,37 @@ class ModelManagementTab(QWidget):
 
             self.model_list_widget.addItem(category_item)
 
-            # Add models in this category
+            # 添加此类别中的模型
             for model_metadata in models:
                 filename = model_metadata['filename']
                 display_name = f"  {filename}"
 
-                # Add file size and description
+                # 添加文件大小和描述
                 size_mb = model_metadata.get('file_size_mb', 0)
                 display_name += f" ({size_mb:.1f} MB)"
 
-                # Add description
+                # 添加描述
                 description = ModelMetadata.get_model_description(model_metadata)
                 display_name += f"\n  {description}"
 
-                # Add default marker if applicable
+                # 如果适用，添加默认标记
                 if category == 'ucf101' and filename == 'ucf101_best.pth':
                     display_name += " [默认 Default]"
 
-                # Create list item
+                # 创建列表项
                 item = QListWidgetItem(display_name)
                 item.setData(Qt.UserRole, model_metadata)
                 self.model_list_widget.addItem(item)
 
-                # Store in dictionary
+                # 存储在字典中
                 self.current_models[filename] = model_metadata
 
-        # Update status
+        # 更新状态
         total_models = sum(len(models) for models in categories.values())
         self.status_label.setText(f"状态 Status: 找到 {total_models} 个模型 Found {total_models} models")
 
     def _on_scan_error(self, error_msg: str):
-        """Handle error during model scan"""
+        """处理模型扫描期间的错误"""
         self.model_list_widget.clear()
         self.status_label.setText(f"状态 Status: 扫描失败 Scan failed: {error_msg}")
         QMessageBox.critical(
@@ -437,10 +437,10 @@ class ModelManagementTab(QWidget):
 
     def on_model_selected(self, item: QListWidgetItem):
         """
-        Handle model selection from list
+        处理从列表中选择模型
 
-        Args:
-            item: Selected list item
+        参数:
+            item: 选中的列表项
         """
         try:
             metadata = item.data(Qt.UserRole)
@@ -449,20 +449,20 @@ class ModelManagementTab(QWidget):
 
             self.current_model_metadata = metadata
 
-            # Enable action buttons
+            # 启用操作按钮
             self.delete_button.setEnabled(True)
             self.set_default_button.setEnabled(True)
             self.load_model_button.setEnabled(True)
 
-            # Update details (compact format)
+            # 更新详情（紧凑格式）
             self.filename_label.setText(f"文件: {metadata.get('filename', 'Unknown')}")
 
-            # Fold path to show only parent directory and filename
+            # 折叠路径以仅显示父目录和文件名
             full_path = metadata.get('path', 'Unknown')
             if full_path != 'Unknown':
                 path_obj = Path(full_path)
-                # Only show parent directory and filename
-                # e.g., E:\...\models\ucf101\ucf101_best.pth -> ucf101\ucf101_best.pth
+                # 仅显示父目录和文件名
+                # 例如，E:\...\models\ucf101\ucf101_best.pth -> ucf101\ucf101_best.pth
                 if path_obj.parent and path_obj.parent.name:
                     short_path = f"{path_obj.parent.name}/{path_obj.name}"
                 else:
@@ -474,7 +474,7 @@ class ModelManagementTab(QWidget):
             file_size_mb = metadata.get('file_size_mb', 0)
             self.size_label.setText(f"大小: {file_size_mb:.2f} MB")
 
-            # Get modification time
+            # 获取修改时间
             file_path = Path(metadata.get('path', ''))
             if file_path.exists():
                 import datetime
@@ -484,7 +484,7 @@ class ModelManagementTab(QWidget):
             else:
                 self.modified_label.setText("修改: -")
 
-            # Architecture details (compact)
+            # 架构详情（紧凑）
             backbone = metadata.get('backbone', 'Unknown')
             if isinstance(backbone, str):
                 self.backbone_label.setText(f"骨干: {backbone.upper()}")
@@ -503,7 +503,7 @@ class ModelManagementTab(QWidget):
             frames_per_segment = metadata.get('frames_per_segment', 'Unknown')
             self.frames_label.setText(f"每段帧数: {frames_per_segment}")
 
-            # Calculate total frames if both are known integers
+            # 如果两者都是已知整数，则计算总帧数
             try:
                 if (isinstance(num_segments, int) and isinstance(frames_per_segment, int)):
                     total = num_segments * frames_per_segment
@@ -513,7 +513,7 @@ class ModelManagementTab(QWidget):
             except Exception:
                 self.total_frames_label.setText("总帧数: Unknown")
 
-            # Training info (compact)
+            # 训练信息（紧凑）
             if 'trained_epochs' in metadata:
                 self.epochs_label.setText(f"轮数: {metadata['trained_epochs']}")
             else:
@@ -525,7 +525,7 @@ class ModelManagementTab(QWidget):
             else:
                 self.accuracy_label.setText("精度: -")
 
-            # Status
+            # 状态
             is_valid = metadata.get('is_valid', False)
             if is_valid:
                 self.status_label.setText("状态: ✅ 有效")
@@ -534,7 +534,7 @@ class ModelManagementTab(QWidget):
                 self.status_label.setText(f"状态: ❌ 无效 - {metadata.get('error', 'Unknown')}")
                 self.status_label.setStyleSheet("color: red;")
 
-            # Description
+            # 描述
             description = ModelMetadata.get_model_description(metadata)
             self.description_text.setText(description)
 
@@ -546,7 +546,7 @@ class ModelManagementTab(QWidget):
             )
 
     def upload_model(self):
-        """Upload a new model file"""
+        """上传新的模型文件"""
         file_path, _ = QFileDialog.getOpenFileName(
             self,
             "选择模型文件 Select Model File",
@@ -557,7 +557,7 @@ class ModelManagementTab(QWidget):
         if not file_path:
             return
 
-        # Ask for category
+        # 询问类别
         from PyQt5.QtWidgets import QDialog, QComboBox, QDialogButtonBox
 
         dialog = QDialog(self)
@@ -585,17 +585,17 @@ class ModelManagementTab(QWidget):
         else:
             category = "custom"
 
-        # Copy model file
+        # 复制模型文件
         try:
-            # Create category directory
+            # 创建类别目录
             category_dir = self.models_dir / category
             category_dir.mkdir(parents=True, exist_ok=True)
 
-            # Copy file
+            # 复制文件
             filename = Path(file_path).name
             dest_path = category_dir / filename
 
-            # Handle duplicate filenames
+            # 处理重复的文件名
             counter = 1
             while dest_path.exists():
                 name_without_ext = Path(file_path).stem
@@ -622,14 +622,14 @@ class ModelManagementTab(QWidget):
             )
 
     def delete_model(self):
-        """Delete the selected model"""
+        """删除选中的模型"""
         if not self.current_model_metadata:
             return
 
         metadata = self.current_model_metadata
         file_path = metadata.get('path', '')
 
-        # Check if it's a default model
+        # 检查是否为默认模型
         filename = metadata.get('filename', '')
         if filename == 'ucf101_best.pth':
             reply = QMessageBox.warning(
@@ -664,16 +664,16 @@ class ModelManagementTab(QWidget):
                     f"模型已删除 Model deleted:\n{filename}"
                 )
 
-                # Clear selection
+                # 清除选择
                 self.current_model_metadata = None
                 self.delete_button.setEnabled(False)
                 self.set_default_button.setEnabled(False)
                 self.load_model_button.setEnabled(False)
 
-                # Clear details
+                # 清除详情
                 self.clear_details()
 
-                # Refresh list
+                # 刷新列表
                 self.refresh_model_list()
 
         except Exception as e:
@@ -684,14 +684,14 @@ class ModelManagementTab(QWidget):
             )
 
     def set_as_default(self):
-        """Set the selected model as default for its dataset"""
+        """将选中的模型设为其数据集的默认模型"""
         if not self.current_model_metadata:
             return
 
         metadata = self.current_model_metadata
         category = metadata.get('category', 'custom')
 
-        # Can only set default for ucf101
+        # 只能为ucf101设置默认
         if category != 'ucf101':
             QMessageBox.warning(
                 self,
@@ -700,20 +700,20 @@ class ModelManagementTab(QWidget):
             )
             return
 
-        # Determine default filename
+        # 确定默认文件名
         default_name = 'ucf101_best.pth'
 
         try:
-            # Copy current model to default name
+            # 将当前模型复制为默认名称
             current_path = Path(metadata['path'])
             category_dir = current_path.parent
             default_path = category_dir / default_name
 
-            # Remove old default if it exists and is different
+            # 如果旧的默认存在且不同，则删除
             if default_path.exists() and default_path != current_path:
                 os.remove(default_path)
 
-            # Copy
+            # 复制
             shutil.copy2(current_path, default_path)
 
             QMessageBox.information(
@@ -722,7 +722,7 @@ class ModelManagementTab(QWidget):
                 f"已设为默认模型 Set as default model:\n{metadata['filename']}\n→ {default_name}"
             )
 
-            # Refresh list
+            # 刷新列表
             self.refresh_model_list()
 
         except Exception as e:
@@ -734,8 +734,8 @@ class ModelManagementTab(QWidget):
 
     def load_model_for_detection(self):
         """
-        Load the selected model for detection
-        This will update the detection tab's model selection
+        加载选中的模型以进行检测
+        这将更新检测标签页的模型选择
         """
         if not self.current_model_metadata:
             return
@@ -743,7 +743,7 @@ class ModelManagementTab(QWidget):
         metadata = self.current_model_metadata
         file_path = metadata.get('path', '')
 
-        # Get parent MainWindow to access detection tab
+        # 获取父MainWindow以访问检测标签页
         parent = self.parent()
         while parent and not hasattr(parent, 'detection_tab'):
             parent = parent.parent()
@@ -757,15 +757,15 @@ class ModelManagementTab(QWidget):
             return
 
         try:
-            # Update detection tab's custom checkpoint
+            # 更新检测标签页的自定义检查点
             detection_tab = parent.detection_tab
 
-            # Set to custom model mode
+            # 设置为自定义模型模式
             detection_tab.checkpoint_combo.setCurrentIndex(2)  # "自定义模型"
             detection_tab.custom_checkpoint_path = file_path
             detection_tab.custom_checkpoint_button.setText(Path(file_path).name)
 
-            # Switch to detection tab
+            # 切换到检测标签页
             parent.tab_widget.setCurrentWidget(detection_tab)
 
             QMessageBox.information(
@@ -782,7 +782,7 @@ class ModelManagementTab(QWidget):
             )
 
     def select_tensorboard_log(self):
-        """Open dialog to select TensorBoard log directory."""
+        """打开对话框以选择TensorBoard日志目录"""
         if not self.current_model_metadata:
             QMessageBox.warning(
                 self,
@@ -791,7 +791,7 @@ class ModelManagementTab(QWidget):
             )
             return
 
-        # Start in logs directory
+        # 从日志目录开始
         default_log_dir = Path("outputs/logs")
         if default_log_dir.exists():
             start_dir = str(default_log_dir.absolute())
@@ -807,7 +807,7 @@ class ModelManagementTab(QWidget):
         if not log_dir:
             return
 
-        # Validate the directory
+        # 验证目录
         is_valid, error_msg = validate_log_directory(log_dir)
         if not is_valid:
             QMessageBox.warning(
@@ -817,12 +817,12 @@ class ModelManagementTab(QWidget):
             )
             return
 
-        # Load and plot curves
+        # 加载和绘制曲线
         self.load_training_curves(log_dir)
 
     def load_training_curves(self, log_dir: str):
-        """Load and display training curves from log directory."""
-        # First check if TensorBoard is available
+        """从日志目录加载和显示训练曲线"""
+        # 首先检查TensorBoard是否可用
         available, message = check_tensorboard_available()
 
         if not available:
@@ -857,11 +857,11 @@ class ModelManagementTab(QWidget):
 
             self.training_curves.plot_curves(curves_data, log_dir)
 
-            # Switch to curves tab
+            # 切换到曲线选项卡
             self.details_tab_widget.setCurrentIndex(1)
 
         except ImportError as e:
-            # TensorBoard not available - already handled above, but just in case
+            # TensorBoard不可用 - 已在上面处理，但以防万一
             self.training_curves.show_placeholder("TensorBoard 未安装\nTensorBoard not available")
             QMessageBox.critical(
                 self,

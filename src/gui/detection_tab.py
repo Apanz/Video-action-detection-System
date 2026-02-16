@@ -1,6 +1,6 @@
 """
-Real-time detection tab for the GUI
-Provides controls and display for video/webcam detection
+GUI的实时检测标签页
+为视频/摄像头检测提供控制和显示
 """
 
 import os
@@ -18,7 +18,7 @@ from core.config import DetectionConfig
 
 
 class LoadingOverlay(QWidget):
-    """Loading animation overlay widget"""
+    """加载动画叠加小部件"""
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -34,7 +34,7 @@ class LoadingOverlay(QWidget):
             }
         """)
 
-        # Loading label
+        # 加载标签
         self.label = QLabel("...", self)
         self.label.setAlignment(Qt.AlignCenter)
         self.label.setStyleSheet("""
@@ -48,23 +48,23 @@ class LoadingOverlay(QWidget):
         self.label.setGeometry(10, 10, 80, 80)
 
     def show_loading(self, message="加载中..."):
-        """Show loading overlay with message"""
+        """显示带消息的加载叠加"""
         self.label.setText(message)
         self.setVisible(True)
         self.raise_()  # Bring to front
 
     def hide_loading(self):
-        """Hide loading overlay"""
+        """隐藏加载叠加"""
         self.setVisible(False)
 
     def update_message(self, message):
-        """Update loading message"""
+        """更新加载消息"""
         self.label.setText(message)
 
 
 class DetectionTab(QWidget):
     """
-    Tab for real-time video detection
+    实时视频检测标签页
     """
 
     def __init__(self, parent=None):
@@ -75,18 +75,18 @@ class DetectionTab(QWidget):
         self.init_ui()
 
     def init_ui(self):
-        """Initialize user interface"""
+        """初始化用户界面"""
         main_layout = QHBoxLayout()
         main_layout.setContentsMargins(10, 10, 10, 10)
         main_layout.setSpacing(10)
 
-        # Left panel - Controls (fixed minimum width to ensure complete display)
+        # 左侧面板 - 控制器（固定最小宽度以确保完整显示）
         controls_scroll = QScrollArea()
         controls_scroll.setWidgetResizable(True)
-        controls_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)  # Disable horizontal scroll
+        controls_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)  # 禁用水平滚动
         controls_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         controls_scroll.setFrameShape(QScrollArea.NoFrame)
-        # Add margins to scrollbar area to prevent overlap with content
+        # 向滚动条区域添加边距以防止与内容重叠
         controls_scroll.setStyleSheet("""
             QScrollArea {
                 border: none;
@@ -118,40 +118,40 @@ class DetectionTab(QWidget):
         """)
 
         controls_widget = self.create_controls_panel()
-        controls_widget.setMinimumWidth(360)  # Optimized width for better space balance
+        controls_widget.setMinimumWidth(360)  # 为更好的空间平衡优化宽度
         controls_widget.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
         controls_scroll.setWidget(controls_widget)
-        controls_scroll.setMinimumWidth(360)  # Ensure scroll area maintains minimum width
+        controls_scroll.setMinimumWidth(360)  # 确保滚动区域保持最小宽度
 
-        main_layout.addWidget(controls_scroll, 0)  # No stretch factor - fixed width
+        main_layout.addWidget(controls_scroll, 0)  # 无拉伸因子 - 固定宽度
 
-        # Right panel - Video display (expands to fill remaining space)
+        # 右侧面板 - 视频显示（扩展以填充剩余空间）
         self.video_panel = self.create_video_panel()
         self.video_panel.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        main_layout.addWidget(self.video_panel, 1)  # Stretch factor 1 for video - takes remaining space
+        main_layout.addWidget(self.video_panel, 1)  # 视频的拉伸因子为1 - 占据剩余空间
 
         self.setLayout(main_layout)
 
     def create_controls_panel(self):
-        """Create control panel"""
+        """创建控制面板"""
         panel = QWidget()
         layout = QVBoxLayout()
-        layout.setContentsMargins(10, 5, 20, 5)  # Increased right margin to avoid scrollbar overlap
+        layout.setContentsMargins(10, 5, 20, 5)  # 增加右边距以避免滚动条重叠
         layout.setSpacing(8)
         panel.setLayout(layout)
 
-        # Title with icon
+        # 带图标的标题
         title = QLabel("🔍 检测控制")
         title.setFont(QFont("Hiragino Sans GB", 16, QFont.Bold))
         title.setAlignment(Qt.AlignCenter)
         layout.addWidget(title)
 
-        # Mode selection
+        # 模式选择
         mode_group = QGroupBox("📹 检测模式")
         mode_layout = QGridLayout()
         mode_layout.setHorizontalSpacing(10)
         mode_layout.setVerticalSpacing(6)
-        mode_layout.setContentsMargins(10, 15, 12, 10)  # Increased right margin
+        mode_layout.setContentsMargins(10, 15, 12, 10)  # 增加右边距
 
         mode_label = QLabel("模式：")
         mode_label.setMinimumWidth(60)
@@ -178,24 +178,24 @@ class DetectionTab(QWidget):
         self.video_path_edit.setEnabled(False)
         self.selected_video_path = None
         self.video_path_edit.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        mode_layout.addWidget(self.video_path_edit, 2, 0, 1, 2)  # Span both columns
+        mode_layout.addWidget(self.video_path_edit, 2, 0, 1, 2)  # 跨越两列
 
         mode_group.setLayout(mode_layout)
         layout.addWidget(mode_group)
 
-        # Model selection
+        # 模型选择
         model_group = QGroupBox("⚙️ 模型设置")
         model_layout = QGridLayout()
         model_layout.setHorizontalSpacing(10)
         model_layout.setVerticalSpacing(6)
-        model_layout.setContentsMargins(10, 15, 12, 10)  # Increased right margin
+        model_layout.setContentsMargins(10, 15, 12, 10)  # 增加右边距
 
         model_layout.addWidget(QLabel("检查点："), 0, 0)
         model_layout.itemAtPosition(0, 0).widget().setMinimumWidth(65)
 
         self.checkpoint_combo = QComboBox()
         self.checkpoint_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        self.checkpoint_combo.addItems(["UCF101 (默认)", "HMDB51 (默认)", "自定义模型"])  # Updated text
+        self.checkpoint_combo.addItems(["UCF101 (默认)", "HMDB51 (默认)", "自定义模型"])  # 更新文本
         self.checkpoint_combo.currentIndexChanged.connect(self.on_checkpoint_changed)
         model_layout.addWidget(self.checkpoint_combo, 0, 1)
 
@@ -237,11 +237,11 @@ class DetectionTab(QWidget):
         model_group.setLayout(model_layout)
         layout.addWidget(model_group)
 
-        # Output options
+        # 输出选项
         output_group = QGroupBox("📤 输出选项")
         output_layout = QVBoxLayout()
         output_layout.setSpacing(6)
-        output_layout.setContentsMargins(10, 15, 12, 10)  # Increased right margin
+        output_layout.setContentsMargins(10, 15, 12, 10)  # 增加右边距
 
         self.save_video_check = QCheckBox("保存输出视频")
         output_layout.addWidget(self.save_video_check)
@@ -258,12 +258,12 @@ class DetectionTab(QWidget):
         output_group.setLayout(output_layout)
         layout.addWidget(output_group)
 
-        # Control buttons
+        # 控制按钮
         button_layout = QVBoxLayout()
         button_layout.setSpacing(8)
 
         self.start_button = QPushButton("▶️ 开始检测")
-        self.start_button.setMinimumHeight(45)  # Increased height for better touch
+        self.start_button.setMinimumHeight(45)  # 增加高度以改善触摸体验
         self.start_button.setCursor(Qt.PointingHandCursor)
         self.start_button.setStyleSheet("""
             QPushButton {
@@ -294,7 +294,7 @@ class DetectionTab(QWidget):
         button_layout.addWidget(self.start_button)
 
         self.stop_button = QPushButton("⏹️ 停止检测")
-        self.stop_button.setMinimumHeight(45)  # Increased height for better touch
+        self.stop_button.setMinimumHeight(45)  # 增加高度以改善触摸体验
         self.stop_button.setCursor(Qt.PointingHandCursor)
         self.stop_button.setStyleSheet("""
             QPushButton {
@@ -327,12 +327,12 @@ class DetectionTab(QWidget):
 
         layout.addLayout(button_layout)
 
-        # Status display
+        # 状态显示
         status_group = QGroupBox("📊 状态")
         status_layout = QGridLayout()
         status_layout.setHorizontalSpacing(10)
         status_layout.setVerticalSpacing(5)
-        status_layout.setContentsMargins(10, 15, 12, 10)  # Increased right margin
+        status_layout.setContentsMargins(10, 15, 12, 10)  # 增加右边距
 
         self.status_label = QLabel("就绪")
         status_layout.addWidget(self.status_label, 0, 0, 1, 2)
@@ -367,15 +367,15 @@ class DetectionTab(QWidget):
         status_group.setLayout(status_layout)
         layout.addWidget(status_group)
 
-        # Log output
+        # 日志输出
         log_group = QGroupBox("📝 日志")
         log_layout = QVBoxLayout()
         log_layout.setSpacing(6)
-        log_layout.setContentsMargins(10, 15, 12, 10)  # Increased right margin
+        log_layout.setContentsMargins(10, 15, 12, 10)  # 增加右边距
 
         self.log_text = QTextEdit()
         self.log_text.setReadOnly(True)
-        self.log_text.setMinimumHeight(100)  # Optimized height
+        self.log_text.setMinimumHeight(100)  # 优化高度
         self.log_text.setStyleSheet("""
             QTextEdit {
                 background-color: #f9f9f9;
@@ -391,11 +391,11 @@ class DetectionTab(QWidget):
         log_group.setLayout(log_layout)
         layout.addWidget(log_group)
 
-        # Don't add stretch since we're using scroll area
+        # 不要添加弹性空间，因为我们使用滚动区域
         return panel
 
     def create_video_panel(self):
-        """Create video display panel"""
+        """创建视频显示面板"""
         panel = QGroupBox("🎥 视频显示")
         panel.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         panel.setMinimumHeight(400)
@@ -405,15 +405,15 @@ class DetectionTab(QWidget):
         panel.setLayout(layout)
         panel.setFont(QFont("Hiragino Sans GB", 16, QFont.Bold))
 
-        # Video display label
+        # 视频显示标签
         self.video_label = QLabel()
         self.video_label.setAlignment(Qt.AlignCenter)
         self.video_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.video_label.setObjectName("video_label")
         self.video_label.setText("无视频")
-        self.video_label.setFont(QFont("Arial", 18))  # Increased font size
+        self.video_label.setFont(QFont("Arial", 18))  # 增加字体大小
 
-        # Container for video label to center it
+        # 视频标签的容器以将其居中
         video_container = QWidget()
         video_container.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         video_layout = QVBoxLayout(video_container)
@@ -424,11 +424,11 @@ class DetectionTab(QWidget):
 
         layout.addWidget(video_container)
 
-        # Loading overlay (initially hidden)
+        # 加载叠加（最初隐藏）
         self.loading_overlay = LoadingOverlay(self.video_label)
         self.loading_overlay.hide()
 
-        # Info labels
+        # 信息标签
         info_layout = QHBoxLayout()
         info_layout.setSpacing(20)
 
@@ -446,32 +446,32 @@ class DetectionTab(QWidget):
         return panel
 
     def resizeEvent(self, event):
-        """Handle window resize - update video display size for 16:9 ratio"""
+        """处理窗口大小调整 - 更新16:9比例的视频显示大小"""
         super().resizeEvent(event)
 
-        # Get the video panel size
+        # 获取视频面板大小
         panel_width = self.video_panel.width()
         panel_height = self.video_panel.height()
 
-        # Calculate 16:9 video size (accounting for padding and info section)
-        available_height = panel_height - 80  # Reserve space for info labels
-        target_width = panel_width - 40  # Reserve space for padding
+        # 计算16:9视频大小（考虑填充和信息部分）
+        available_height = panel_height - 80  # 为信息标签预留空间
+        target_width = panel_width - 40  # 为填充预留空间
 
-        # Calculate height based on 16:9 ratio
+        # 基于16:9比例计算高度
         target_height = int(target_width * 9 / 16)
 
-        # If calculated height exceeds available space, recalculate based on available height
+        # 如果计算的高度超出可用空间，基于可用高度重新计算
         if target_height > available_height:
             target_height = available_height
             target_width = int(target_height * 16 / 9)
 
-        # Update video label size
+        # 更新视频标签大小
         self.video_label.setFixedSize(target_width, target_height)
 
         event.accept()
 
     def select_video_file(self):
-        """Select video file for processing"""
+        """选择要处理的视频文件"""
         file_path, _ = QFileDialog.getOpenFileName(
             self,
             "选择视频文件",
@@ -484,18 +484,18 @@ class DetectionTab(QWidget):
             self.log(f"已选择视频：{file_path}")
 
     def on_checkpoint_changed(self, index):
-        """Handle checkpoint selection change"""
-        # Enable custom checkpoint button only when "自定义模型" is selected
+        """处理检查点选择更改"""
+        # 仅在选择"自定义模型"时启用自定义检查点按钮
         is_custom = (self.checkpoint_combo.currentText() == "自定义模型")
         self.custom_checkpoint_button.setEnabled(is_custom)
 
     def on_mode_changed(self, index):
-        """Handle mode selection change"""
-        # Enable video file button only when video mode is selected (index 1)
+        """处理模式选择更改"""
+        # 仅在选择视频模式时启用视频文件按钮（索引1）
         self.video_path_edit.setEnabled(index == 1)
 
     def select_custom_checkpoint(self):
-        """Select custom checkpoint file"""
+        """选择自定义检查点文件"""
         file_path, _ = QFileDialog.getOpenFileName(
             self,
             "选择检查点文件",
@@ -508,29 +508,29 @@ class DetectionTab(QWidget):
             self.log(f"已选择自定义检查点：{file_path}")
 
     def log(self, message):
-        """Add message to log"""
+        """向日志添加消息"""
         self.log_text.append(message)
-        # Auto-scroll to bottom
+        # 自动滚动到底部
         self.log_text.verticalScrollBar().setValue(
             self.log_text.verticalScrollBar().maximum()
         )
 
     def start_detection(self):
-        """Start detection"""
+        """开始检测"""
         try:
             from detection import DetectionPipeline
             from core.config import DetectionConfig
 
-            # Show loading overlay
+            # 显示加载叠加
             if self.loading_overlay:
                 self.loading_overlay.show_loading("初始化中...")
 
-            # Get settings
+            # 获取设置
             mode_text = self.mode_combo.currentText()
             mode = "webcam" if "摄像头" in mode_text else "video"
             camera_index = self.camera_spin.value()
 
-            # Get checkpoint path
+            # 获取检查点路径
             checkpoint_text = self.checkpoint_combo.currentText()
             if "自定义模型" in checkpoint_text:
                 if not self.custom_checkpoint_path:
@@ -544,7 +544,7 @@ class DetectionTab(QWidget):
             else:  # HMDB51
                 checkpoint = DetectionConfig.DEFAULT_HMDB51_CHECKPOINT
 
-            # Verify checkpoint exists
+            # 验证检查点是否存在
             if not os.path.exists(checkpoint):
                 self.log(f"错误：检查点文件不存在：{checkpoint}")
                 if self.loading_overlay:
@@ -557,7 +557,7 @@ class DetectionTab(QWidget):
                     self.loading_overlay.hide_loading()
                 return
 
-            # Get output path
+            # 获取输出路径
             output_path = None
             if self.save_video_check.isChecked():
                 if mode == "video":
@@ -568,11 +568,11 @@ class DetectionTab(QWidget):
 
                 os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
-            # Create pipeline
+            # 创建流水线
             self.log("初始化检测管道...")
             self.log(f"使用检查点：{checkpoint}")
 
-            # Get YOLO model path from config
+            # 从配置获取YOLO模型路径
             yolo_model_key = self.yolo_combo.currentText()
             yolo_model_path = DetectionConfig.DEFAULT_YOLO_MODELS.get(
                 yolo_model_key,
@@ -589,7 +589,7 @@ class DetectionTab(QWidget):
                 enable_result_collection=self.record_results_check.isChecked()
             )
 
-            # Create video thread
+            # 创建视频线程
             self.video_thread = VideoProcessingThread(
                 pipeline=self.pipeline,
                 mode=mode,
@@ -597,20 +597,20 @@ class DetectionTab(QWidget):
                 camera_index=camera_index
             )
 
-            # Connect signals
+            # 连接信号
             self.video_thread.frame_ready.connect(self.update_frame)
             self.video_thread.processing_finished.connect(self.on_processing_finished)
             self.video_thread.error_occurred.connect(self.on_error)
 
-            # Connect result collection signal
+            # 连接结果收集信号
             if self.record_results_check.isChecked():
                 self.video_thread.result_ready.connect(self.on_result_ready)
-                # Also set video source for result collector
+                # 同时为结果收集器设置视频源
                 if hasattr(self.pipeline, 'result_collector') and self.pipeline.result_collector:
                     source_desc = f"{mode}" + (f": {os.path.basename(self.selected_video_path)}" if mode == "video" else "")
                     self.pipeline.result_collector.set_video_source(source_desc)
 
-            # Update UI
+            # 更新UI
             self.start_button.setEnabled(False)
             self.stop_button.setEnabled(True)
             self.mode_combo.setEnabled(False)
@@ -619,7 +619,7 @@ class DetectionTab(QWidget):
             self.checkpoint_combo.setEnabled(False)
             self.yolo_combo.setEnabled(False)
 
-            # Start thread
+            # 启动线程
             self.video_thread.start()
             self.log("检测已开始")
             if self.loading_overlay:
@@ -635,19 +635,19 @@ class DetectionTab(QWidget):
             self.reset_ui_state()
 
     def stop_detection(self):
-        """Stop detection"""
+        """停止检测"""
         if self.video_thread and self.video_thread.isRunning():
             self.log("停止检测...")
             self.video_thread.stop()
         self.reset_ui_state()
 
     def reset_ui_state(self):
-        """Reset UI to initial state"""
+        """将UI重置为初始状态"""
         self.start_button.setEnabled(True)
         self.stop_button.setEnabled(False)
         self.mode_combo.setEnabled(True)
         self.camera_spin.setEnabled(True)
-        # Video button state is now handled by on_mode_changed signal
+        # 视频按钮状态现在由on_mode_changed信号处理
         self.on_mode_changed(self.mode_combo.currentIndex())
         self.checkpoint_combo.setEnabled(True)
         self.yolo_combo.setEnabled(True)
@@ -657,21 +657,21 @@ class DetectionTab(QWidget):
         self.video_label.setText("无视频")
 
     def update_frame(self, frame, info):
-        """Update video display"""
-        # Hide loading overlay when first frame arrives
+        """更新视频显示"""
+        # 第一帧到达时隐藏加载叠加
         if self.loading_overlay and self.loading_overlay.isVisible():
             self.loading_overlay.hide_loading()
 
-        # Convert BGR to RGB for display
+        # 将BGR转换为RGB以进行显示
         if frame is not None and len(frame.shape) == 3:
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-            # Create QImage
+            # 创建QImage
             h, w, c = rgb_frame.shape
             bytes_per_line = c * w
             qt_image = QImage(rgb_frame.data, w, h, bytes_per_line, QImage.Format_RGB888)
 
-            # Scale to fit label while maintaining aspect ratio
+            # 缩放以适应标签，同时保持纵横比
             scaled_pixmap = QPixmap.fromImage(qt_image).scaled(
                 self.video_label.size(),
                 Qt.KeepAspectRatio,
@@ -679,27 +679,27 @@ class DetectionTab(QWidget):
             )
             self.video_label.setPixmap(scaled_pixmap)
 
-            # Update info labels
+            # 更新信息标签
             self.status_label.setText("处理中...")
             self.fps_label.setText(f"帧率：{info.get('fps', 0):.1f}")
             self.action_label.setText(f"动作：{info.get('action', '-')}")
             self.confidence_label.setText(f"置信度：{info.get('confidence', 0)*100:.1f}%")
 
-            # Update resolution and device info
+            # 更新分辨率和设备信息
             self.resolution_label.setText(f"分辨率：{info.get('resolution', f'{w}x{h}')}")
             self.device_label.setText(f"设备：{info.get('device', '-')}")
 
-            # Update progress bar (for video file mode)
+            # 更新进度条（用于视频文件模式）
             if 'progress' in info:
                 self.progress_bar.setValue(int(info['progress'] * 100))
 
     def on_processing_finished(self, stats):
-        """Handle processing completion"""
+        """处理处理完成"""
         self.log("检测完成！")
         self.log(f"处理帧数：{stats.get('frames_processed', 0)}")
         self.log(f"平均帧率：{stats.get('average_fps', 0):.1f}")
 
-        # Emit final results if collection was enabled
+        # 如果启用了收集，则发送最终结果
         if hasattr(self.pipeline, 'result_collector') and self.pipeline.result_collector:
             final_stats = self.pipeline.result_collector.get_statistics()
             self.on_result_ready(final_stats)
@@ -707,8 +707,8 @@ class DetectionTab(QWidget):
         self.reset_ui_state()
 
     def on_result_ready(self, stats):
-        """Handle detection results update"""
-        # Update results tab if it exists
+        """处理检测结果更新"""
+        # 更新结果选项卡（如果存在）
         parent = self.parent()
         while parent and not hasattr(parent, 'results_tab'):
             parent = parent.parent()
@@ -717,13 +717,13 @@ class DetectionTab(QWidget):
             parent.results_tab.update_results(stats)
 
     def on_error(self, error_message):
-        """Handle error"""
+        """处理错误"""
         self.log(f"错误：{error_message}")
         self.status_label.setText("错误")
         self.reset_ui_state()
 
     def closeEvent(self, event):
-        """Handle window close event"""
+        """处理窗口关闭事件"""
         if self.video_thread and self.video_thread.isRunning():
             self.video_thread.stop()
         event.accept()

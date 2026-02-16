@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """
-Real-time Detection Script for Video Action Recognition
-Command-line interface for real-time action detection using webcam or video file
+视频动作识别的实时检测脚本
+使用摄像头或视频文件进行实时动作检测的命令行界面
 """
 
 import sys
 import argparse
 from pathlib import Path
 
-# Add src directory to path
+# 将src目录添加到路径
 ROOT_DIR = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT_DIR / "src"))
 
@@ -16,12 +16,12 @@ from detection import DetectionPipeline
 
 
 def main():
-    """Main detection function"""
+    """主检测函数"""
     parser = argparse.ArgumentParser(
         description='Real-time video action detection using TSN and YOLO'
     )
 
-    # Input mode
+    # 输入模式
     parser.add_argument('--mode', type=str, default='webcam',
                         choices=['webcam', 'video'],
                         help='Detection mode: webcam or video file')
@@ -30,7 +30,7 @@ def main():
     parser.add_argument('--camera', type=int, default=0,
                         help='Camera index for webcam mode (default: 0)')
 
-    # Model arguments
+    # 模型参数
     parser.add_argument('--checkpoint', type=str, required=True,
                         help='Path to trained TSN model checkpoint')
     parser.add_argument('--yolo_model', type=str, default='yolov5s',
@@ -39,7 +39,7 @@ def main():
     parser.add_argument('--confidence', type=float, default=0.5,
                         help='Detection confidence threshold (0.0-1.0)')
 
-    # Output arguments
+    # 输出参数
     parser.add_argument('--output', type=str, default=None,
                         help='Path to save output video')
     parser.add_argument('--fps', type=float, default=30.0,
@@ -49,18 +49,18 @@ def main():
 
     args = parser.parse_args()
 
-    # Validate arguments
+    # 验证参数
     if args.mode == 'video' and args.input is None:
         print("Error: --input required for video mode")
         parser.print_help()
         sys.exit(1)
 
-    # Verify checkpoint exists
+    # 验证检查点是否存在
     if not Path(args.checkpoint).exists():
         print(f"Error: Checkpoint not found: {args.checkpoint}")
         sys.exit(1)
 
-    # Print configuration
+    # 打印配置
     print("="*60)
     print("Real-time Action Detection")
     print("="*60)
@@ -78,7 +78,7 @@ def main():
     print("="*60)
 
     try:
-        # Create detection pipeline
+        # 创建检测流水线
         print("\nInitializing detection pipeline...")
         pipeline = DetectionPipeline(
             checkpoint_path=args.checkpoint,
@@ -89,7 +89,7 @@ def main():
             save_video=args.output is not None
         )
 
-        # Run detection
+        # 运行检测
         print("Starting detection...")
         print("Press 'q' to quit")
 
@@ -98,7 +98,7 @@ def main():
         else:
             stats = pipeline.process_video(video_path=args.input, output_path=args.output)
 
-        # Print final statistics
+        # 打印最终统计
         print("\n" + "="*60)
         print("Detection Complete")
         print("="*60)
@@ -111,7 +111,7 @@ def main():
             print(f"Total time: {stats['total_time']:.1f}s")
         print("="*60)
 
-        # Cleanup
+        # 清理
         pipeline.close()
 
     except KeyboardInterrupt:

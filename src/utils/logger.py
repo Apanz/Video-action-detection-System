@@ -22,8 +22,8 @@ from core.config import ROOT_DIR
 
 class TrainingLogger:
     """
-    Enhanced training logger with TensorBoard and file logging.
-    Ensures data flush for reliable training curve visualization.
+    增强型训练日志记录器，支持TensorBoard和文件日志。
+    确保数据刷新以可靠地可视化训练曲线。
     """
 
     def __init__(
@@ -33,59 +33,59 @@ class TrainingLogger:
         config: Optional[Dict[str, Any]] = None
     ):
         """
-        Initialize the training logger.
+        初始化训练日志记录器。
 
         Args:
-            log_dir: Base directory for logs
-            experiment_name: Name of the experiment/run
-            config: Configuration dictionary to save
+            log_dir: 日志的基础目录
+            experiment_name: 实验/运行的名称
+            config: 要保存的配置字典
         """
         self.log_dir = Path(log_dir)
         self.experiment_name = experiment_name
         self.experiment_dir = self.log_dir / experiment_name
 
-        # Create experiment directory
+        # 创建实验目录
         self.experiment_dir.mkdir(parents=True, exist_ok=True)
 
-        # Initialize TensorBoard writer
+        # 初始化TensorBoard写入器
         self.writer = SummaryWriter(
             str(self.experiment_dir),
-            flush_secs=10,  # Auto-flush every 10 seconds
+            flush_secs=10,  # 每10秒自动刷新
             filename_suffix='.log'
         )
 
-        # Set up file logging
+        # 设置文件日志
         self._setup_file_logger()
 
-        # Initialize counters
+        # 初始化计数器
         self._write_count = 0
         self._last_flush_time = time.time()
-        self._flush_interval = 10  # Flush every 10 writes
+        self._flush_interval = 10  # 每10次写入刷新
 
-        # Save configuration
+        # 保存配置
         if config is not None:
             self.save_config(config)
 
-        # Log initialization
+        # 记录初始化
         self.info(f"TrainingLogger initialized for {experiment_name}")
         self.info(f"Log directory: {self.experiment_dir}")
 
     def _setup_file_logger(self):
-        """Set up Python logging for text log files."""
+        """为文本日志文件设置Python日志记录。"""
         log_file = self.experiment_dir / "training.log"
 
-        # Configure logger
+        # 配置日志记录器
         self.logger = logging.getLogger(f"TrainingLogger_{self.experiment_name}")
         self.logger.setLevel(logging.INFO)
 
-        # Remove existing handlers
+        # 移除现有的处理器
         self.logger.handlers.clear()
 
-        # File handler
+        # 文件处理器
         fh = logging.FileHandler(log_file, mode='w')
         fh.setLevel(logging.INFO)
 
-        # Formatter
+        # 格式化器
         formatter = logging.Formatter(
             '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
             datefmt='%Y-%m-%d %H:%M:%S'
@@ -95,17 +95,17 @@ class TrainingLogger:
         self.logger.addHandler(fh)
 
     def info(self, message: str):
-        """Log info message."""
+        """记录信息消息。"""
         self.logger.info(message)
         print(f"[INFO] {message}")
 
     def warning(self, message: str):
-        """Log warning message."""
+        """记录警告消息。"""
         self.logger.warning(message)
         print(f"[WARNING] {message}")
 
     def error(self, message: str):
-        """Log error message."""
+        """记录错误消息。"""
         self.logger.error(message)
         print(f"[ERROR] {message}")
 
@@ -117,13 +117,13 @@ class TrainingLogger:
         prefix: str = ''
     ):
         """
-        Log multiple scalar metrics to TensorBoard.
+        将多个标量指标记录到TensorBoard。
 
         Args:
-            metrics: Dictionary of metric names and values
-            step: Global step number
-            epoch: Current epoch (optional)
-            prefix: Prefix for metric names (e.g., 'train/', 'val/')
+            metrics: 指标名称和值的字典
+            step: 全局步数
+            epoch: 当前轮次（可选）
+            prefix: 指标名称的前缀（例如，'train/', 'val/'）
         """
         for name, value in metrics.items():
             full_name = f"{prefix}{name}" if prefix else name
@@ -144,13 +144,13 @@ class TrainingLogger:
         lr: Optional[float] = None
     ):
         """
-        Log batch-level metrics.
+        记录批次级别的指标。
 
         Args:
-            loss: Batch loss
-            acc: Batch accuracy
-            step: Global step number
-            lr: Learning rate (optional)
+            loss: 批次损失
+            acc: 批次准确率
+            step: 全局步数
+            lr: 学习率（可选）
         """
         metrics = {
             'batch_loss': loss,
@@ -171,31 +171,31 @@ class TrainingLogger:
         lr: float
     ):
         """
-        Log end-of-epoch metrics.
+        记录轮次结束时的指标。
 
         Args:
-            train_loss: Training loss
-            train_acc: Training accuracy
-            val_loss: Validation loss
-            val_acc: Validation accuracy
-            epoch: Current epoch
-            lr: Learning rate
+            train_loss: 训练损失
+            train_acc: 训练准确率
+            val_loss: 验证损失
+            val_acc: 验证准确率
+            epoch: 当前轮次
+            lr: 学习率
         """
-        # Training metrics
+        # 训练指标
         self.writer.add_scalar('train/loss', train_loss, epoch)
         self.writer.add_scalar('train/acc', train_acc, epoch)
 
-        # Validation metrics
+        # 验证指标
         self.writer.add_scalar('val/loss', val_loss, epoch)
         self.writer.add_scalar('val/acc', val_acc, epoch)
 
-        # Learning rate
+        # 学习率
         self.writer.add_scalar('lr', lr, epoch)
 
         self._write_count += 1
         self._auto_flush()
 
-        # Log to file
+        # 记录到文件
         self.info(
             f"Epoch {epoch}: train_loss={train_loss:.4f}, train_acc={train_acc:.2f}%, "
             f"val_loss={val_loss:.4f}, val_acc={val_acc:.2f}%, lr={lr:.6f}"
@@ -203,23 +203,23 @@ class TrainingLogger:
 
     def log_gradients(self, model: nn.Module, step: int):
         """
-        Log gradient histograms and norms.
+        记录梯度直方图和范数。
 
         Args:
-            model: PyTorch model
-            step: Global step number
+            model: PyTorch模型
+            step: 全局步数
         """
         try:
             for name, param in model.named_parameters():
                 if param.grad is not None:
-                    # Gradient histogram
+                    # 梯度直方图
                     self.writer.add_histogram(
                         f'gradients/{name}',
                         param.grad.data,
                         step
                     )
 
-                    # Gradient norm
+                    # 梯度范数
                     grad_norm = param.grad.data.norm(2).item()
                     self.writer.add_scalar(
                         f'grad_norm/{name}',
@@ -234,11 +234,11 @@ class TrainingLogger:
 
     def log_parameters(self, model: nn.Module, step: int):
         """
-        Log parameter histograms (weights and biases).
+        记录参数直方图（权重和偏置）。
 
         Args:
-            model: PyTorch model
-            step: Global step number
+            model: PyTorch模型
+            step: 全局步数
         """
         try:
             for name, param in model.named_parameters():
@@ -248,7 +248,7 @@ class TrainingLogger:
                     step
                 )
 
-                # Parameter norm
+                # 参数范数
                 param_norm = param.data.norm(2).item()
                 self.writer.add_scalar(
                     f'param_norm/{name}',
@@ -263,11 +263,11 @@ class TrainingLogger:
 
     def log_model_graph(self, model: nn.Module, inputs):
         """
-        Log model computation graph.
+        记录模型计算图。
 
         Args:
-            model: PyTorch model
-            inputs: Sample input tensor
+            model: PyTorch模型
+            inputs: 示例输入张量
         """
         try:
             self.writer.add_graph(model, inputs)
@@ -278,14 +278,14 @@ class TrainingLogger:
 
     def log_hyperparams(self, config: Dict[str, Any], metrics: Optional[Dict[str, float]] = None):
         """
-        Log hyperparameters for TensorBoard HParams plugin.
+        为TensorBoard HParams插件记录超参数。
 
         Args:
-            config: Configuration dictionary
-            metrics: Optional initial metrics
+            config: 配置字典
+            metrics: 可选的初始指标
         """
         try:
-            # Flatten config for tensorboard
+            # 为tensorboard展平配置
             hparams = {}
             for key, value in config.items():
                 if isinstance(value, (int, float, str, bool)):
@@ -301,7 +301,7 @@ class TrainingLogger:
                 else:
                     hparams[key] = str(value)
 
-            # Define default metrics if not provided
+            # 如果未提供则定义默认指标
             if metrics is None:
                 metrics = {
                     'hparam/accuracy': 0,
@@ -323,34 +323,34 @@ class TrainingLogger:
         epoch: int
     ):
         """
-        Log confusion matrix visualization.
+        记录混淆矩阵可视化。
 
         Args:
-            y_true: True labels
-            y_pred: Predicted labels
-            class_names: List of class names
-            epoch: Current epoch
+            y_true: 真实标签
+            y_pred: 预测标签
+            class_names: 类别名称列表
+            epoch: 当前轮次
         """
         try:
             from sklearn.metrics import confusion_matrix
             import matplotlib.pyplot as plt
             import io
 
-            # Compute confusion matrix
+            # 计算混淆矩阵
             cm = confusion_matrix(y_true, y_pred)
 
-            # Create figure
+            # 创建图形
             fig = plt.figure(figsize=(10, 10))
             plt.imshow(cm, interpolation='nearest', cmap=plt.cm.Blues)
             plt.title(f'Confusion Matrix - Epoch {epoch}')
             plt.colorbar()
 
-            # Add labels
+            # 添加标签
             tick_marks = range(len(class_names))
             plt.xticks(tick_marks, class_names, rotation=90)
             plt.yticks(tick_marks, class_names)
 
-            # Add text
+            # 添加文本
             thresh = cm.max() / 2.
             for i in range(cm.shape[0]):
                 for j in range(cm.shape[1]):
@@ -364,7 +364,7 @@ class TrainingLogger:
             plt.ylabel('True label')
             plt.xlabel('Predicted label')
 
-            # Convert to image and log
+            # 转换为图像并记录
             buf = io.BytesIO()
             plt.savefig(buf, format='png', dpi=100, bbox_inches='tight')
             buf.seek(0)
@@ -381,14 +381,14 @@ class TrainingLogger:
 
     def save_config(self, config: Dict[str, Any]):
         """
-        Save configuration to JSON file.
+        将配置保存到JSON文件。
 
         Args:
-            config: Configuration dictionary
+            config: 配置字典
         """
         config_file = self.experiment_dir / "config.json"
 
-        # Convert Path objects to strings
+        # 将Path对象转换为字符串
         def convert_paths(obj):
             if isinstance(obj, Path):
                 return str(obj)
@@ -408,12 +408,12 @@ class TrainingLogger:
             self.error(f"Failed to save configuration: {e}")
 
     def _auto_flush(self):
-        """Automatically flush after a certain number of writes."""
+        """在特定次数写入后自动刷新。"""
         if self._write_count >= self._flush_interval:
             self.flush()
 
     def flush(self):
-        """Force flush all buffers to disk."""
+        """强制刷新所有缓冲区到磁盘。"""
         try:
             self.writer.flush()
             for handler in self.logger.handlers:
@@ -424,7 +424,7 @@ class TrainingLogger:
             self.error(f"Failed to flush logs: {e}")
 
     def close(self):
-        """Close logger and ensure all data is written."""
+        """关闭日志记录器并确保所有数据已写入。"""
         self.info("Closing TrainingLogger...")
         self.flush()
 
@@ -433,7 +433,7 @@ class TrainingLogger:
         except Exception as e:
             self.error(f"Error closing TensorBoard writer: {e}")
 
-        # Close file handlers
+        # 关闭文件处理器
         for handler in self.logger.handlers:
             try:
                 handler.close()
@@ -444,10 +444,10 @@ class TrainingLogger:
 
     def verify_logs(self) -> Dict[str, Any]:
         """
-        Verify log file integrity and return statistics.
+        验证日志文件完整性并返回统计信息。
 
         Returns:
-            Dictionary with verification results
+            包含验证结果的字典
         """
         result = {
             'experiment_dir': str(self.experiment_dir),
@@ -457,7 +457,7 @@ class TrainingLogger:
         }
 
         try:
-            # Check for event files
+            # 检查事件文件
             event_files = list(self.experiment_dir.glob('events.out.tfevents.*'))
             result['files']['event_files'] = [
                 {
@@ -468,7 +468,7 @@ class TrainingLogger:
                 for f in event_files
             ]
 
-            # Check for log file
+            # 检查日志文件
             log_file = self.experiment_dir / 'training.log'
             if log_file.exists():
                 result['files']['training_log'] = {
@@ -480,14 +480,14 @@ class TrainingLogger:
             else:
                 result['files']['training_log'] = {'exists': False}
 
-            # Check for config file
+            # 检查配置文件
             config_file = self.experiment_dir / 'config.json'
             result['files']['config'] = {'exists': config_file.exists()}
 
-            # Determine status
+            # 确定状态
             if event_files:
                 total_event_size = sum(f['size_bytes'] for f in result['files']['event_files'])
-                if total_event_size > 1000:  # More than 1KB
+                if total_event_size > 1000:  # 超过1KB
                     result['status'] = 'ok'
                 else:
                     result['status'] = 'warning: small event files'
@@ -501,14 +501,14 @@ class TrainingLogger:
         return result
 
     def get_log_dir(self) -> Path:
-        """Get the experiment log directory."""
+        """获取实验日志目录。"""
         return self.experiment_dir
 
     def __enter__(self):
-        """Context manager entry."""
+        """上下文管理器入口。"""
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        """Context manager exit - ensures logger is closed properly."""
+        """上下文管理器退出 - 确保日志记录器正确关闭。"""
         self.close()
         return False

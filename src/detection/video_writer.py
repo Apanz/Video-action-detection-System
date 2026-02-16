@@ -1,6 +1,6 @@
 """
-Video Output Module
-Handles video writing with overlays and metadata
+视频输出模块
+处理带有叠加层和元数据的视频写入
 """
 
 import cv2
@@ -11,20 +11,20 @@ import time
 
 class VideoWriter:
     """
-    Handles video output with overlay support
+    处理带有叠加层的视频输出
     """
 
     def __init__(self, output_path: str, fps: float = 30.0, frame_size: Tuple[int, int] = None,
                  codec: str = 'mp4v', quality: int = 95):
         """
-        Initialize video writer
+        初始化视频写入器
 
         Args:
-            output_path: Path to output video file
-            fps: Frames per second
-            frame_size: Video frame size (width, height)
-            codec: FourCC codec code
-            quality: Video quality (0-100)
+            output_path: 输出视频文件路径
+            fps: 每秒帧数
+            frame_size: 视频帧大小（宽度，高度）
+            codec: FourCC编解码器代码
+            quality: 视频质量（0-100）
         """
         self.output_path = output_path
         self.fps = fps
@@ -39,23 +39,23 @@ class VideoWriter:
 
     def initialize(self, frame: np.ndarray):
         """
-        Initialize video writer with sample frame
+        使用示例帧初始化视频写入器
 
         Args:
-            frame: Sample frame to get dimensions
+            frame: 用于获取尺寸的示例帧
         """
         if self.is_initialized:
             return
 
         if self.frame_size is None:
-            # Get frame size from input
+            # 从输入获取帧大小
             height, width = frame.shape[:2]
             self.frame_size = (width, height)
 
-        # Initialize writer
+        # 初始化写入器
         fourcc = cv2.VideoWriter_fourcc(*self.codec)
 
-        # Set quality for mp4 codec
+        # 为mp4编解码器设置质量
         if self.codec == 'mp4v':
             self.writer = cv2.VideoWriter(
                 self.output_path, fourcc, self.fps,
@@ -71,23 +71,23 @@ class VideoWriter:
 
     def write_frame(self, frame: np.ndarray):
         """
-        Write frame to video
+        将帧写入视频
 
         Args:
-            frame: Frame to write
+            frame: 要写入的帧
         """
         if not self.is_initialized:
             self.initialize(frame)
 
         if self.writer is not None and self.is_initialized:
-            # Ensure frame size matches
+            # 确保帧大小匹配
             if frame.shape[1] != self.frame_size[0] or frame.shape[0] != self.frame_size[1]:
                 frame = cv2.resize(frame, self.frame_size)
 
             self.writer.write(frame)
             self.frame_count += 1
 
-            # Print progress every 30 frames
+            # 每30帧打印一次进度
             if self.frame_count % 30 == 0:
                 elapsed = time.time() - self.start_time
                 current_fps = self.frame_count / elapsed if elapsed > 0 else 0
@@ -95,7 +95,7 @@ class VideoWriter:
 
     def close(self):
         """
-        Close video writer
+        关闭视频写入器
         """
         if self.writer is not None:
             self.writer.release()
@@ -120,48 +120,48 @@ class VideoWriter:
 
 class FrameOverlay:
     """
-    Handles overlay drawing on frames
+    处理帧上的叠加层绘制
     """
 
     @staticmethod
     def draw_info_panel(frame: np.ndarray, info: dict) -> np.ndarray:
         """
-        Draw information panel on frame (top-right corner)
-        Shows Resolution, Action, Persons with smaller font
+        在帧上绘制信息面板（右上角）
+        使用较小字体显示分辨率、动作、人员
 
         Args:
-            frame: Input frame
-            info: Dictionary with information to display
+            frame: 输入帧
+            info: 要显示的信息字典
 
         Returns:
-            Frame with info panel
+            带有信息面板的帧
         """
         output_frame = frame.copy()
 
-        # Frame dimensions
+        # 帧尺寸
         height, width = output_frame.shape[:2]
 
-        # Text settings (smaller font size)
+        # 文本设置（较小字体大小）
         font = cv2.FONT_HERSHEY_SIMPLEX
-        font_scale = 0.35  # Smaller font size
+        font_scale = 0.35  # 较小字体大小
         line_height = 18
         text_thickness = 1
 
-        # Draw info panel at top-right corner (without FPS)
+        # 在右上角绘制信息面板（不显示FPS）
         panel_width = 180
         panel_height = 75
         panel_color = (0, 0, 0, 150)
 
-        # Calculate right-top position
+        # 计算右上位置
         panel_x = width - panel_width - 10
         panel_y = 10
 
-        # Draw panel background
-        cv2.rectangle(output_frame, (panel_x, panel_y), 
+        # 绘制面板背景
+        cv2.rectangle(output_frame, (panel_x, panel_y),
                      (panel_x + panel_width, panel_y + panel_height),
                      panel_color, -1)
 
-        # Draw info text at right-top (without FPS)
+        # 在右上角绘制信息文本（不显示FPS）
         texts = [
             f"Resolution: {info.get('resolution', 'N/A')}",
             f"Action: {info.get('action', 'N/A')}",
@@ -182,25 +182,25 @@ class FrameOverlay:
     def draw_action_label(frame: np.ndarray, label: str, confidence: float,
                          bbox: Tuple[int, int, int, int]) -> np.ndarray:
         """
-        Draw action label above bounding box
+        在边界框上方绘制动作标签
 
         Args:
-            frame: Input frame
-            label: Action label
-            confidence: Confidence score
-            bbox: Bounding box (x1, y1, x2, y2)
+            frame: 输入帧
+            label: 动作标签
+            confidence: 置信度分数
+            bbox: 边界框 (x1, y1, x2, y2)
 
         Returns:
-            Frame with action label
+            带有动作标签的帧
         """
         output_frame = frame.copy()
 
         x1, y1, x2, y2 = bbox
 
-        # Create label text
+        # 创建标签文本
         label_text = f"{label}: {confidence:.2f}"
 
-        # Get text size
+        # 获取文本大小
         font = cv2.FONT_HERSHEY_SIMPLEX
         font_scale = 0.7
         text_thickness = 2
@@ -208,17 +208,17 @@ class FrameOverlay:
             label_text, font, font_scale, text_thickness
         )
 
-        # Calculate label position
+        # 计算标签位置
         label_x = x1
         label_y = y1 - 10
 
-        # Draw background rectangle
+        # 绘制背景矩形
         cv2.rectangle(output_frame,
                      (label_x, label_y - text_height - baseline),
                      (label_x + text_width, label_y),
                      (0, 255, 0), -1)
 
-        # Draw text
+        # 绘制文本
         cv2.putText(output_frame, label_text, (label_x, label_y),
                    font, font_scale, (0, 0, 0), text_thickness)
 
@@ -227,38 +227,38 @@ class FrameOverlay:
     @staticmethod
     def draw_timestamp(frame: np.ndarray, timestamp: str) -> np.ndarray:
         """
-        Draw timestamp on frame (left-top corner with smaller font)
+        在帧上绘制时间戳（左上角，较小字体）
 
         Args:
-            frame: Input frame
-            timestamp: Timestamp string
+            frame: 输入帧
+            timestamp: 时间戳字符串
 
         Returns:
-            Frame with timestamp
+            带有时间戳的帧
         """
         output_frame = frame.copy()
 
-        # Text settings (smaller font size)
+        # 文本设置（较小字体大小）
         font = cv2.FONT_HERSHEY_SIMPLEX
-        font_scale = 0.35  # Smaller font size
+        font_scale = 0.35  # 较小字体大小
         thickness = 1
 
-        # Get text size
+        # 获取文本大小
         (text_width, text_height), baseline = cv2.getTextSize(
             timestamp, font, font_scale, thickness
         )
 
-        # Position at left-top corner
+        # 定位在左上角
         x = 10
         y = text_height + 10
 
-        # Draw background
+        # 绘制背景
         cv2.rectangle(output_frame,
                      (x - 5, y - text_height - 5),
                      (x + text_width + 5, y + 5),
                      (0, 0, 0, 150), -1)
 
-        # Draw text
+        # 绘制文本
         cv2.putText(output_frame, timestamp, (x, y),
                    font, font_scale, (255, 255, 255), thickness)
 
@@ -268,33 +268,33 @@ class FrameOverlay:
     def draw_confidence_bar(frame: np.ndarray, confidence: float,
                           bbox: Tuple[int, int, int, int]) -> np.ndarray:
         """
-        Draw confidence bar on bounding box
+        在边界框上绘制置信度条
 
         Args:
-            frame: Input frame
-            confidence: Confidence score (0-1)
-            bbox: Bounding box (x1, y1, x2, y2)
+            frame: 输入帧
+            confidence: 置信度分数（0-1）
+            bbox: 边界框 (x1, y1, x2, y2)
 
         Returns:
-            Frame with confidence bar
+            带有置信度条的帧
         """
         output_frame = frame.copy()
 
         x1, y1, x2, y2 = bbox
 
-        # Bar dimensions
+        # 条形尺寸
         bar_width = x2 - x1
         bar_height = 5
         bar_x = x1
         bar_y = y2 + 5
 
-        # Draw background
+        # 绘制背景
         cv2.rectangle(output_frame,
                      (bar_x, bar_y),
                      (bar_x + bar_width, bar_y + bar_height),
                      (100, 100, 100), -1)
 
-        # Draw confidence bar
+        # 绘制置信度条
         conf_width = int(bar_width * confidence)
         if conf_width > 0:
             cv2.rectangle(output_frame,

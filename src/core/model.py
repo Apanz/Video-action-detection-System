@@ -33,25 +33,25 @@ class TSN(nn.Module):
         self.frames_per_segment = frames_per_segment
         self.total_frames = num_segments * frames_per_segment
 
-        # Load backbone
+        # 加载骨干网络
         self.backbone_name = backbone
         self.backbone = self._create_backbone(backbone, pretrained)
 
-        # Get feature dimension from backbone
+        # 从骨干网络获取特征维度
         if 'resnet' in backbone:
             feature_dim = self.backbone.fc.in_features
-            # Remove the original classification layer
+            # 移除原始分类层
             self.backbone.fc = nn.Identity()
         elif 'mobilenet' in backbone:
             feature_dim = self.backbone.classifier[1].in_features
-            # Remove the original classification layer
+            # 移除原始分类层
             self.backbone.classifier = nn.Identity()
         else:
             raise ValueError(f"Unsupported backbone: {backbone}")
 
         self.feature_dim = feature_dim
 
-        # Classifier head
+        # 分类器头
         self.classifier = nn.Sequential(
             nn.Dropout(dropout),
             nn.Linear(feature_dim, num_classes)
@@ -83,48 +83,48 @@ class TSN(nn.Module):
         """
         B, T, C, H, W = x.shape
 
-        # Reshape to process each frame individually
+        # 重塑以单独处理每一帧
         # (B, T, C, H, W) -> (B*T, C, H, W)
         x = x.view(-1, C, H, W)
 
-        # Extract features from backbone
-        features = self.backbone(x)  # Shape: (B*T, feature_dim)
+        # 从骨干网络提取特征
+        features = self.backbone(x)  # 形状: (B*T, feature_dim)
 
-        # Reshape back to (B, T, feature_dim)
+        # 重塑回 (B, T, feature_dim)
         features = features.view(B, T, self.feature_dim)
 
-        # CRITICAL: Use actual number of frames (T) instead of fixed num_segments * frames_per_segment
-        # This handles cases where T < num_segments * frames_per_segment
-        # Dynamic segment calculation based on actual frame count
+        # 关键：使用实际帧数(T)而不是固定的num_segments * frames_per_segment
+        # 这处理了 T < num_segments * frames_per_segment 的情况
+        # 基于实际帧数动态计算片段
         segment_features = []
         frames_per_segment = T // self.num_segments
 
         for seg_idx in range(self.num_segments):
             start_idx = seg_idx * frames_per_segment
-            # For the last segment, include all remaining frames
+            # 对于最后一个片段，包含所有剩余帧
             if seg_idx == self.num_segments - 1:
                 end_idx = T
             else:
                 end_idx = start_idx + frames_per_segment
 
-            segment_feat = features[:, start_idx:end_idx, :]  # (B, actual_frames_in_segment, feature_dim)
+            segment_feat = features[:, start_idx:end_idx, :]  # (B, 片段中的实际帧数, feature_dim)
 
-            # Average pooling within segment (only if non-empty)
+            # 片段内平均池化（仅当非空时）
             if segment_feat.size(1) > 0:
                 segment_feat = segment_feat.mean(dim=1)  # (B, feature_dim)
             else:
-                # If segment is empty, use zeros
+                # 如果片段为空，使用零向量
                 segment_feat = torch.zeros(B, self.feature_dim, device=x.device)
 
             segment_features.append(segment_feat)
 
-        # Stack segment features: (B, num_segments, feature_dim)
+        # 堆叠片段特征: (B, num_segments, feature_dim)
         segment_features = torch.stack(segment_features, dim=1)
 
-        # Average pooling across segments (TSN consensus)
+        # 跨片段平均池化（TSN共识）
         consensus_features = segment_features.mean(dim=1)  # (B, feature_dim)
 
-        # Classification
+        # 分类
         predictions = self.classifier(consensus_features)  # (B, num_classes)
 
         return predictions
@@ -154,11 +154,11 @@ class TSNWithConsensus(nn.Module):
         self.total_frames = num_segments * frames_per_segment
         self.consensus = consensus
 
-        # Load backbone
+        # 加载骨干网络
         self.backbone_name = backbone
         self.backbone = self._create_backbone(backbone, pretrained)
 
-        # Get feature dimension
+        # 获取特征维度
         if 'resnet' in backbone:
             feature_dim = self.backbone.fc.in_features
             self.backbone.fc = nn.Identity()
@@ -168,7 +168,7 @@ class TSNWithConsensus(nn.Module):
 
         self.feature_dim = feature_dim
 
-        # Classifier head (applied to each segment separately)
+        # 分类器头（分别应用于每个片段）
         self.segment_classifier = nn.Sequential(
             nn.Dropout(dropout),
             nn.Linear(feature_dim, num_classes)
@@ -193,22 +193,22 @@ class TSNWithConsensus(nn.Module):
         """
         B, T, C, H, W = x.shape
 
-        # Process each frame
+        # 处理每一帧
         x = x.view(-1, C, H, W)
         features = self.backbone(x)  # (B*T, feature_dim)
         features = features.view(B, T, self.feature_dim)
 
-        # Get per-segment predictions
+        # 获取每个片段的预测
         segment_predictions = []
         for seg_idx in range(self.num_segments):
             start_idx = seg_idx * self.frames_per_segment
             end_idx = start_idx + self.frames_per_segment
             segment_feat = features[:, start_idx:end_idx, :]
-            segment_feat = segment_feat.mean(dim=1)  # Average within segment
+            segment_feat = segment_feat.mean(dim=1)  # 片段内平均
             seg_pred = self.segment_classifier(segment_feat)
             segment_predictions.append(seg_pred)
 
-        # Stack and aggregate
+        # 堆叠并聚合
         segment_predictions = torch.stack(segment_predictions, dim=1)  # (B, num_segments, num_classes)
 
         if self.consensus == 'avg':

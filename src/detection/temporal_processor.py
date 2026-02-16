@@ -1,6 +1,6 @@
 """
-Temporal Processing Module
-Maintains frame buffers for consistent action classification
+时序处理模块
+维护帧缓冲区以实现一致的动作分类
 """
 
 import cv2
@@ -14,22 +14,22 @@ import gc
 
 class TemporalProcessor:
     """
-    Processes temporal segments for consistent action recognition
-    Maintains frame buffers and applies TSN sampling strategy
+    为一致的动作识别处理时序片段
+    维护帧缓冲区并应用TSN采样策略
     """
 
     def __init__(self, num_segments: int = 3, frames_per_segment: int = 5,
                  buffer_size: int = 30, target_size: tuple = (224, 224),
                  max_memory_mb: float = 500.0):
         """
-        Initialize temporal processor
+        初始化时序处理器
 
         Args:
-            num_segments: Number of temporal segments for TSN
-            frames_per_segment: Frames per segment
-            buffer_size: Maximum frames to store in buffer
-            target_size: Target resize size (H, W)
-            max_memory_mb: Maximum memory usage in MB before triggering cleanup
+            num_segments: TSN的时序片段数量
+            frames_per_segment: 每片段帧数
+            buffer_size: 缓冲区中存储的最大帧数
+            target_size: 目标调整大小 (H, W)
+            max_memory_mb: 触发清理前的最大内存使用量（MB）
         """
         self.num_segments = num_segments
         self.frames_per_segment = frames_per_segment
@@ -38,94 +38,94 @@ class TemporalProcessor:
         self.target_size = target_size
         self.max_memory_mb = max_memory_mb
 
-        # Frame buffer for each detected person
-        # Structure: {track_id: deque of frames}
+        # 每个检测人员的帧缓冲区
+        # 结构：{track_id: 帧的双端队列}
         self.frame_buffers: Dict[int, deque] = {}
 
-        # Timestamp buffer for temporal consistency
+        # 时间一致性时间戳缓冲区
         self.timestamp_buffers: Dict[int, deque] = {}
 
-        # Frame count for each track
+        # 每个轨迹的帧计数
         self.frame_counts: Dict[int, int] = {}
 
-        # Memory monitoring
+        # 内存监控
         self.memory_warnings = 0
         self.max_memory_threshold_reached = False
 
     def add_frame(self, frame: np.ndarray, track_id: int, timestamp: float) -> bool:
         """
-        Add frame to buffer for specific track
+        将帧添加到特定轨迹的缓冲区
 
         Args:
-            frame: Input frame (BGR format)
-            track_id: Track ID for person
-            timestamp: Frame timestamp
+            frame: 输入帧（BGR格式）
+            track_id: 人员的轨迹ID
+            timestamp: 帧时间戳
 
         Returns:
-            True if buffer is ready for processing, False otherwise
+            如果缓冲区准备好处理则返回True，否则返回False
         """
-        # Initialize track if not exists
+        # 如果不存在则初始化轨迹
         if track_id not in self.frame_buffers:
             self.frame_buffers[track_id] = deque(maxlen=self.buffer_size)
             self.timestamp_buffers[track_id] = deque(maxlen=self.buffer_size)
             self.frame_counts[track_id] = 0
 
-        # CRITICAL FIX: Intelligent frame scaling to reduce memory usage
-        # If frame is larger than target size, scale it down before storing
-        # This prevents high-resolution person crops from consuming excessive memory
+        # 关键修复：智能帧缩放以减少内存使用
+        # 如果帧大于目标大小，在存储前将其缩小
+        # 这可以防止高分辨率的人员裁剪消耗过多内存
         processed_frame = self._scale_frame_intelligently(frame)
 
-        # Add processed frame to buffer
+        # 将处理后的帧添加到缓冲区
         self.frame_buffers[track_id].append(processed_frame)
         self.timestamp_buffers[track_id].append(timestamp)
         self.frame_counts[track_id] += 1
 
-        # Periodically check memory usage and cleanup if needed
+        # 定期检查内存使用情况并在需要时进行清理
         if self.frame_counts[track_id] % 10 == 0:
             self._check_memory_and_cleanup()
 
-        # Check if we have enough frames
+        # 检查我们是否有足够的帧
         return len(self.frame_buffers[track_id]) >= self.total_frames
 
     def _scale_frame_intelligently(self, frame: np.ndarray, max_size: int = 640) -> np.ndarray:
         """
-        Intelligently scale frame to reduce memory usage while preserving aspect ratio
+        智能缩放帧以减少内存使用，同时保持纵横比
 
         Args:
-            frame: Input frame (BGR format)
-            max_size: Maximum dimension size (width or height)
+            frame: 输入帧（BGR格式）
+            max_size: 最大维度大小（宽度或高度）
 
         Returns:
-            Scaled frame if needed, otherwise original frame
+            如果需要则返回缩放后的帧，否则返回原始帧
         """
         h, w = frame.shape[:2]
 
-        # Check if scaling is needed
+        # 检查是否需要缩放
         if h <= max_size and w <= max_size:
-            # Frame is small enough, return as-is
+            # 帧足够小，按原样返回
             return frame
 
-        # Calculate scale factor to fit within max_size while preserving aspect ratio
+        # 计算缩放因子以适应max_size，同时保持纵横比
         scale = min(max_size / h, max_size / w)
 
-        # Calculate new dimensions
+        # 计算新尺寸
         new_h = int(h * scale)
         new_w = int(w * scale)
 
-        # Scale frame
+        # 缩放帧
         scaled_frame = cv2.resize(frame, (new_w, new_h), interpolation=cv2.INTER_AREA)
 
         return scaled_frame
 
     def get_temporal_segments(self, track_id: int) -> Optional[List[np.ndarray]]:
         """
-        Extract temporal segments for TSN processing
+        提取用于TSN处理的时序片段
 
         Args:
-            track_id: Track ID
+            track_id: 轨迹ID
 
         Returns:
-            List of frames in TSN format or None if not enough frames
+            TSN格式的帧列表，如果帧数不足则返回None
         """
         if track_id not in self.frame_buffers or len(self.frame_buffers[track_id]) < self.total_frames:
             return None
@@ -133,8 +133,8 @@ class TemporalProcessor:
         frames = list(self.frame_buffers[track_id])
         timestamps = list(self.timestamp_buffers[track_id])
 
-        # Apply TSN sampling strategy
-        # For test/validation mode: uniform sampling within segments
+        # 应用TSN采样策略
+        # 对于测试/验证模式：在片段内均匀采样
         segment_frames = []
 
         for seg_idx in range(self.num_segments):
@@ -142,22 +142,22 @@ class TemporalProcessor:
             end_idx = int((seg_idx + 1) * len(frames) / self.num_segments)
             segment_frame_count = self.frames_per_segment
 
-            # Sample frames from this segment
+            # 从此片段中采样帧
             if self.frames_per_segment == 1:
-                # Single frame: use center frame of segment
+                # 单帧：使用片段的中心帧
                 frame_idx = (start_idx + end_idx) // 2
                 selected_frame = frames[frame_idx]
             else:
-                # Multiple frames: distribute evenly
+                # 多帧：均匀分布
                 segment_frames_list = []
                 for i in range(segment_frame_count):
-                    # Calculate position within segment
+                    # 计算片段内的位置
                     pos = start_idx + (end_idx - start_idx) * i / (segment_frame_count - 1)
                     frame_idx = int(pos)
                     frame_idx = min(frame_idx, end_idx - 1)
                     segment_frames_list.append(frames[frame_idx])
 
-                # Average segment frames if needed
+                # 如果需要，对片段帧进行平均
                 selected_frame = self._average_frames(segment_frames_list)
 
             segment_frames.append(selected_frame)
@@ -166,71 +166,71 @@ class TemporalProcessor:
 
     def _average_frames(self, frames: List[np.ndarray]) -> np.ndarray:
         """
-        Average multiple frames together
+        将多个帧平均在一起
 
         Args:
-            frames: List of frames to average
+            frames: 要平均的帧列表
 
         Returns:
-            Averaged frame
+            平均后的帧
         """
-        # CRITICAL: Resize all frames to target size before stacking
-        # This handles person crops with different sizes
+        # 关键：在堆叠之前将所有帧调整为相同的目标尺寸
+        # 这可以处理不同大小的人员裁剪
         frames_resized = [cv2.resize(frame, self.target_size) for frame in frames]
 
-        # Convert to float for averaging
+        # 转换为浮点数以进行平均
         frames_float = [frame.astype(np.float32) for frame in frames_resized]
 
-        # Stack and average
+        # 堆叠并平均
         stacked = np.stack(frames_float, axis=0)
         averaged = np.mean(stacked, axis=0)
 
-        # Convert back to uint8
+        # 转换回uint8
         return averaged.astype(np.uint8)
 
     def preprocess_frames(self, frames: List[np.ndarray]) -> torch.Tensor:
         """
-        Preprocess frames for TSN model input
-        Must match training preprocessing exactly:
+        为TSN模型输入预处理帧
+        必须完全匹配训练预处理：
         Resize(256) -> CenterCrop(224) -> ToTensor() -> Normalize(ImageNet)
 
         Args:
-            frames: List of frames (BGR format)
+            frames: 帧列表（BGR格式）
 
         Returns:
-            Preprocessed tensor (1, T, C, H, W)
+            预处理后的张量 (1, T, C, H, W)
         """
         processed_frames = []
 
-        # ImageNet normalization constants (use float32 to match model)
+        # ImageNet归一化常数（使用float32以匹配模型）
         IMAGENET_MEAN = np.array([0.485, 0.456, 0.406], dtype=np.float32)
         IMAGENET_STD = np.array([0.229, 0.224, 0.225], dtype=np.float32)
 
         for frame in frames:
-            # Convert BGR to RGB
+            # 将BGR转换为RGB
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-            # Step 1: Resize to 256 (matches training)
+            # 步骤1：调整大小为256（匹配训练）
             resized_256 = cv2.resize(rgb_frame, (256, 256))
 
-            # Step 2: Center crop to 224 (matches training)
+            # 步骤2：中心裁剪为224（匹配训练）
             h, w = resized_256.shape[:2]
             top = (h - 224) // 2
             left = (w - 224) // 2
             cropped_frame = resized_256[top:top+224, left:left+224]
 
-            # Step 3: Normalize to [0, 1]
+            # 步骤3：归一化到[0, 1]
             normalized_frame = cropped_frame.astype(np.float32) / 255.0
 
-            # Step 4: Apply ImageNet normalization
+            # 步骤4：应用ImageNet归一化
             imagenet_normalized = (normalized_frame - IMAGENET_MEAN) / IMAGENET_STD
 
-            # Convert to tensor and add channel dimension (HWC -> CHW)
+            # 转换为张量并添加通道维度（HWC -> CHW）
             tensor_frame = torch.from_numpy(imagenet_normalized).permute(2, 0, 1)
 
             processed_frames.append(tensor_frame)
 
-        # Stack frames: (T, C, H, W) -> (1, T, C, H, W)
+        # 堆叠帧：(T, C, H, W) -> (1, T, C, H, W)
         stacked_frames = torch.stack(processed_frames, dim=0)
         batch_frames = stacked_frames.unsqueeze(0)
 
@@ -238,11 +238,11 @@ class TemporalProcessor:
 
     def remove_old_tracks(self, current_time: float, max_age: float = 2.0):
         """
-        Remove tracks that haven't been updated recently
+        移除最近未更新的轨迹
 
         Args:
-            current_time: Current timestamp
-            max_age: Maximum age in seconds before removing track
+            current_time: 当前时间戳
+            max_age: 移除轨迹前的最大时间（秒）
         """
         tracks_to_remove = []
 
@@ -252,7 +252,7 @@ class TemporalProcessor:
                 if current_time - last_update > max_age:
                     tracks_to_remove.append(track_id)
 
-        # Remove old tracks
+        # 移除旧轨迹
         for track_id in tracks_to_remove:
             del self.frame_buffers[track_id]
             del self.timestamp_buffers[track_id]
@@ -261,10 +261,10 @@ class TemporalProcessor:
 
     def get_track_stats(self) -> Dict[int, Dict]:
         """
-        Get statistics for all active tracks
+        获取所有活动轨迹的统计信息
 
         Returns:
-            Dictionary with track statistics
+            包含轨迹统计信息的字典
         """
         stats = {}
 
@@ -279,10 +279,10 @@ class TemporalProcessor:
 
     def clear_buffer(self, track_id: int = None):
         """
-        Clear frame buffer for specific track or all tracks
+        清除特定轨迹或所有轨迹的帧缓冲区
 
         Args:
-            track_id: Specific track ID, None for all tracks
+            track_id: 特定轨迹ID，None表示所有轨迹
         """
         if track_id is not None:
             if track_id in self.frame_buffers:
@@ -296,28 +296,28 @@ class TemporalProcessor:
 
     def _estimate_memory_usage(self) -> float:
         """
-        Estimate current memory usage of frame buffers in MB
+        估算帧缓冲区的当前内存使用量（MB）
 
         Returns:
-            Estimated memory usage in MB
+            估算的内存使用量（MB）
         """
         total_bytes = 0
         for track_id, buffer in self.frame_buffers.items():
             for frame in buffer:
-                # Estimate size: height * width * channels * 3 (uint8 -> potential expansion)
+                # 估算大小：高度 * 宽度 * 通道数 * 3（uint8 -> 可能的扩展）
                 if hasattr(frame, 'nbytes'):
                     total_bytes += frame.nbytes
                 else:
-                    # Fallback estimation
+                    # 回退估算
                     h, w = frame.shape[:2] if len(frame.shape) >= 2 else (224, 224)
                     c = frame.shape[2] if len(frame.shape) == 3 else 3
-                    total_bytes += h * w * c * 4  # Assume float32 worst case
+                    total_bytes += h * w * c * 4  # 假设最坏情况为float32
 
-        return total_bytes / (1024 * 1024)  # Convert to MB
+        return total_bytes / (1024 * 1024)  # 转换为MB
 
     def _check_memory_and_cleanup(self):
         """
-        Check memory usage and perform cleanup if needed
+        检查内存使用情况并在需要时执行清理
         """
         estimated_memory = self._estimate_memory_usage()
 
@@ -328,28 +328,28 @@ class TemporalProcessor:
                 print(f"WARNING: Memory usage ({estimated_memory:.1f} MB) exceeds threshold ({self.max_memory_mb} MB)")
                 print("Performing aggressive cleanup...")
 
-                # Force garbage collection
+                # 强制垃圾回收
                 gc.collect()
 
-                # Reduce buffer sizes for all tracks
+                # 减小所有轨迹的缓冲区大小
                 for track_id in self.frame_buffers:
                     current_size = len(self.frame_buffers[track_id])
                     if current_size > self.total_frames:
-                        # Trim buffer to minimum required size
+                        # 将缓冲区修剪为最小所需大小
                         excess = current_size - self.total_frames
                         for _ in range(excess):
                             self.frame_buffers[track_id].popleft()
                             self.timestamp_buffers[track_id].popleft()
 
-                # Remove inactive tracks more aggressively
+                # 更积极地移除非活动轨迹
                 import time
                 current_time = time.time()
-                self.remove_old_tracks(current_time, max_age=1.0)  # More aggressive
+                self.remove_old_tracks(current_time, max_age=1.0)  # 更积极
 
                 print(f"Cleanup complete. Memory after cleanup: {self._estimate_memory_usage():.1f} MB")
 
         elif estimated_memory > self.max_memory_mb * 0.8 and not self.max_memory_threshold_reached:
-            # Warning threshold at 80%
+            # 80%时的警告阈值
             if self.memory_warnings == 0:
                 print(f"INFO: Memory usage at {estimated_memory:.1f} MB ({estimated_memory/self.max_memory_mb*100:.0f}% of threshold)")
                 self.memory_warnings += 1

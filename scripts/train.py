@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """
-Training Script for TSN-based Video Action Recognition
-Command-line interface for training models on UCF101/HMDB51 datasets
+基于TSN的视频动作识别训练脚本
+用于在UCF101/HMDB51数据集上训练模型的命令行界面
 """
 
 import sys
 import argparse
 from pathlib import Path
 
-# Add src directory to path
+# 将src目录添加到路径
 ROOT_DIR = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT_DIR / "src"))
 
@@ -17,10 +17,10 @@ from core.config import TrainConfig
 
 
 def main():
-    """Main training function"""
+    """主训练函数"""
     parser = argparse.ArgumentParser(description='Train TSN model for video action recognition')
 
-    # Dataset arguments
+    # 数据集参数
     parser.add_argument('--dataset', type=str, default='ucf101',
                         choices=['ucf101', 'hmdb51'],
                         help='Dataset to use (ucf101 or hmdb51)')
@@ -28,7 +28,7 @@ def main():
                         choices=[1, 2, 3],
                         help='Split ID for UCF101 (1, 2, or 3)')
 
-    # Model arguments
+    # 模型参数
     parser.add_argument('--backbone', type=str, default='resnet18',
                         choices=['resnet18', 'resnet34', 'resnet50', 'mobilenet_v2'],
                         help='CNN backbone architecture')
@@ -41,7 +41,7 @@ def main():
     parser.add_argument('--frames_per_segment', type=int, default=5,
                         help='Frames per segment')
 
-    # Training arguments
+    # 训练参数
     parser.add_argument('--epochs', type=int, default=50,
                         help='Number of training epochs')
     parser.add_argument('--batch_size', type=int, default=32,
@@ -55,13 +55,13 @@ def main():
     parser.add_argument('--num_workers', type=int, default=4,
                         help='Number of data loading workers')
 
-    # Checkpoint arguments
+    # 检查点参数
     parser.add_argument('--save_freq', type=int, default=5,
                         help='Save checkpoint every N epochs')
     parser.add_argument('--resume', type=str, default=None,
                         help='Resume from checkpoint path')
 
-    # Fine-tuning arguments
+    # 微调参数
     parser.add_argument('--finetune', type=str, default=None,
                         help='Path to checkpoint for fine-tuning')
     parser.add_argument('--freeze_backbone', action='store_true', default=False,
@@ -71,11 +71,11 @@ def main():
     parser.add_argument('--finetune_lr', type=float, default=0.0001,
                         help='Learning rate for fine-tuning')
 
-    # Early stopping
+    # 早停机制
     parser.add_argument('--patience', type=int, default=TrainConfig.EARLY_STOPPING_PATIENCE,
                         help='Early stopping patience')
 
-    # Regularization arguments (for preventing overfitting)
+    # 正则化参数（用于防止过拟合）
     parser.add_argument('--weight_decay', type=float, default=TrainConfig.WEIGHT_DECAY,
                         help='Weight decay (L2 regularization)')
     parser.add_argument('--label_smoothing', type=float, default=TrainConfig.LABEL_SMOOTHING,
@@ -102,7 +102,7 @@ def main():
 
     args = parser.parse_args()
 
-    # Print configuration
+    # 打印配置
     print("="*60)
     print("Training Configuration")
     print("="*60)
@@ -139,18 +139,18 @@ def main():
     print("="*60)
 
     try:
-        # Create trainer
+        # 创建训练器
         trainer = Trainer(args)
 
-        # Log hyperparameters at start
+        # 在开始时记录超参数
         print("\nLogging hyperparameters...")
         trainer.log_hyperparams(trainer._get_config_dict(args))
 
-        # Log model graph (optional, can be commented out if causes issues)
+        # 记录模型图（可选，如果引起问题可以注释掉）
         try:
-            # Get a sample batch for logging the model graph
+            # 获取一个样本批次用于记录模型图
             sample_batch = next(iter(trainer.train_loader))
-            sample_input = sample_batch['video'][:1].to(trainer.device)  # Single sample
+            sample_input = sample_batch['video'][:1].to(trainer.device)  # 单个样本
             trainer.log_model_graph(sample_input)
         except Exception as e:
             print(f"Warning: Could not log model graph: {e}")
@@ -159,24 +159,24 @@ def main():
         print("Starting Training")
         print("="*60)
 
-        # Training loop
+        # 训练循环
         for epoch in range(trainer.current_epoch, args.epochs):
             trainer.current_epoch = epoch
 
-            # Unfreeze backbone after frozen_epochs
+            # 在frozen_epochs之后解冻骨干网络
             if epoch == trainer.frozen_epochs and trainer.frozen_epochs > 0:
                 trainer.unfreeze_backbone(new_lr=trainer.finetune_lr)
 
-            # Train
+            # 训练
             train_loss, train_acc = trainer.train_epoch()
 
-            # Validate
+            # 验证
             val_loss, val_acc = trainer.validate()
 
-            # Log epoch metrics using enhanced logger
+            # 使用增强的日志记录器记录轮次指标
             trainer.log_epoch_metrics(train_loss, train_acc, val_loss, val_acc, epoch)
 
-            # Log gradients and parameters (every 5 epochs to reduce overhead)
+            # 记录梯度和参数（每5个轮次一次以减少开销）
             if epoch % 5 == 0:
                 trainer.log_gradients(epoch)
                 trainer.log_parameters(epoch)
@@ -185,7 +185,7 @@ def main():
             print(f"Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.2f}%")
             print(f"Val Loss: {val_loss:.4f}, Val Acc: {val_acc:.2f}%")
 
-            # Check for best model
+            # 检查是否为最佳模型
             is_best = val_acc > trainer.best_acc
             if is_best:
                 trainer.best_acc = val_acc
@@ -194,7 +194,7 @@ def main():
             else:
                 trainer.early_stopping_counter += 1
 
-            # Save checkpoint
+            # 保存检查点
             if (epoch + 1) % args.save_freq == 0:
                 filename = f"{args.dataset}_epoch{epoch+1}.pth"
                 trainer.save_checkpoint(filename, is_best)
@@ -202,7 +202,7 @@ def main():
             if is_best:
                 trainer.save_checkpoint(f"{args.dataset}_best.pth", True)
 
-            # Early stopping
+            # 早停机制
             if trainer.early_stopping_counter >= args.patience:
                 print(f"\nEarly stopping triggered after {epoch + 1} epochs")
                 break
@@ -212,20 +212,20 @@ def main():
         print(f"Best validation accuracy: {trainer.best_acc:.2f}%")
         print("="*60)
 
-        # Verify logs before closing
+        # 关闭前验证日志
         print("\nVerifying log files...")
         verification = trainer.verify_logs()
         print(f"Log directory: {verification['experiment_dir']}")
         print(f"Log status: {verification.get('status', 'unknown')}")
 
-        # Close logger
+        # 关闭日志记录器
         trainer.close_logger()
 
     except KeyboardInterrupt:
         print("\n" + "="*60)
         print("Training interrupted by user")
         print("="*60)
-        # Flush and close logger before exit
+        # 退出前刷新并关闭日志记录器
         try:
             trainer.logger.flush()
             verification = trainer.verify_logs()
@@ -242,7 +242,7 @@ def main():
         import traceback
         traceback.print_exc()
 
-        # Try to save logs before crashing
+        # 尝试在崩溃前保存日志
         try:
             if 'trainer' in locals():
                 trainer.logger.flush()

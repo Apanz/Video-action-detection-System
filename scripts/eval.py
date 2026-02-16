@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """
-Evaluation Script for TSN-based Video Action Recognition
-Command-line interface for evaluating trained models
+基于TSN的视频动作识别评估脚本
+用于评估训练模型的命令行界面
 """
 
 import sys
 import argparse
 from pathlib import Path
 
-# Add src directory to path
+# 将src目录添加到路径
 ROOT_DIR = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT_DIR / "src"))
 
@@ -21,13 +21,13 @@ from tqdm import tqdm
 
 def evaluate_model(trainer):
     """
-    Evaluate model on test set
+    在测试集上评估模型
 
     Args:
-        trainer: Trainer instance with loaded model
+        trainer: 包含已加载模型的训练器实例
 
     Returns:
-        Dictionary with evaluation metrics
+        包含评估指标的字典
     """
     trainer.model.eval()
 
@@ -35,7 +35,7 @@ def evaluate_model(trainer):
     correct = 0
     total = 0
 
-    # Per-class accuracy tracking
+    # 每类别准确率跟踪
     class_correct = {}
     class_total = {}
 
@@ -44,17 +44,17 @@ def evaluate_model(trainer):
             videos = batch['video'].to(trainer.device)
             labels = batch['label'].to(trainer.device)
 
-            # Forward pass
+            # 前向传播
             outputs = trainer.model(videos)
             loss = trainer.criterion(outputs, labels)
 
-            # Statistics
+            # 统计
             total_loss += loss.item()
             _, predicted = outputs.max(1)
             total += labels.size(0)
             correct += predicted.eq(labels).sum().item()
 
-            # Per-class tracking
+            # 每类别跟踪
             for i in range(labels.size(0)):
                 label = labels[i].item()
                 pred = predicted[i].item()
@@ -67,11 +67,11 @@ def evaluate_model(trainer):
                 if pred == label:
                     class_correct[label] += 1
 
-    # Calculate overall metrics
+    # 计算总体指标
     avg_loss = total_loss / len(trainer.val_loader)
     avg_acc = 100. * correct / total
 
-    # Calculate per-class accuracy
+    # 计算每类别准确率
     per_class_acc = {}
     for class_id in class_total:
         per_class_acc[class_id] = 100. * class_correct[class_id] / class_total[class_id]
@@ -88,10 +88,10 @@ def evaluate_model(trainer):
 
 
 def main():
-    """Main evaluation function"""
+    """主评估函数"""
     parser = argparse.ArgumentParser(description='Evaluate TSN model for video action recognition')
 
-    # Checkpoint argument
+    # 检查点参数
     parser.add_argument('--checkpoint', type=str, required=True,
                         help='Path to model checkpoint')
     parser.add_argument('--dataset', type=str, default='ucf101',
@@ -112,7 +112,7 @@ def main():
     parser.add_argument('--dropout', type=float, default=0.5,
                         help='Dropout rate')
 
-    # Evaluation arguments
+    # 评估参数
     parser.add_argument('--batch_size', type=int, default=32,
                         help='Batch size')
     parser.add_argument('--num_workers', type=int, default=4,
@@ -120,12 +120,12 @@ def main():
 
     args = parser.parse_args()
 
-    # Verify checkpoint exists
+    # 验证检查点是否存在
     if not Path(args.checkpoint).exists():
         print(f"Error: Checkpoint not found: {args.checkpoint}")
         sys.exit(1)
 
-    # Print configuration
+    # 打印配置
     print("="*60)
     print("Evaluation Configuration")
     print("="*60)
@@ -137,11 +137,11 @@ def main():
     print(f"Frames per Segment: {args.frames_per_segment}")
     print("="*60)
 
-    # Load checkpoint to get config
+    # 加载检查点以获取配置
     print("\nLoading checkpoint...")
     checkpoint = torch.load(args.checkpoint, map_location=TrainConfig.DEVICE)
 
-    # Extract dataset info if available
+    # 如果可用则提取数据集信息
     if 'model_state_dict' in checkpoint:
         model_state_dict = checkpoint['model_state_dict']
         best_acc = checkpoint.get('best_acc', 'Unknown')
@@ -149,41 +149,41 @@ def main():
         print(f"Checkpoint epoch: {epoch}")
         print(f"Checkpoint best acc: {best_acc:.2f}%" if best_acc != 'Unknown' else "Checkpoint best acc: Unknown")
 
-    # Create trainer for evaluation
+    # 创建用于评估的训练器
     print("\nCreating trainer...")
 
-    # Create minimal args for evaluation
+    # 为评估创建最小参数
     eval_args = argparse.Namespace(
         dataset=args.dataset,
         split_id=args.split_id,
         backbone=args.backbone,
-        pretrained=False,  # Don't need pretrained for evaluation
+        pretrained=False,  # 评估时不需要预训练
         dropout=args.dropout,
         num_segments=args.num_segments,
         frames_per_segment=args.frames_per_segment,
-        epochs=1,  # Not used for evaluation
+        epochs=1,  # 评估时不使用
         batch_size=args.batch_size,
-        lr=0.001,  # Not used
-        step_size=15,  # Not used
-        gamma=0.1,  # Not used
+        lr=0.001,  # 不使用
+        step_size=15,  # 不使用
+        gamma=0.1,  # 不使用
         num_workers=args.num_workers,
-        save_freq=1,  # Not used
-        resume=args.checkpoint,  # Resume from checkpoint
+        save_freq=1,  # 不使用
+        resume=args.checkpoint,  # 从检查点恢复
         finetune=None,
         freeze_backbone=False,
         freeze_epochs=0,
         finetune_lr=0.0001,
-        patience=100  # Not used
+        patience=100  # 不使用
     )
 
     try:
         trainer = Trainer(eval_args)
 
-        # Evaluate model
+        # 评估模型
         print("\nEvaluating model...")
         results = evaluate_model(trainer)
 
-        # Print results
+        # 打印结果
         print("\n" + "="*60)
         print("Evaluation Results")
         print("="*60)
@@ -192,7 +192,7 @@ def main():
         print(f"Correct: {results['correct']}/{results['total']}")
         print("="*60)
 
-        # Print per-class accuracy
+        # 打印每类别准确率
         print("\nPer-Class Accuracy:")
         print("-"*60)
         for class_id in sorted(results['per_class_accuracy'].keys()):

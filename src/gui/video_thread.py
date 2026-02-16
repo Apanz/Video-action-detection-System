@@ -1,6 +1,6 @@
 """
-Video processing worker thread for GUI
-Handles real-time video detection without blocking the UI
+GUI的视频处理工作线程
+处理实时视频检测而不阻塞UI
 """
 
 import cv2
@@ -12,25 +12,25 @@ from typing import Optional
 
 class VideoProcessingThread(QThread):
     """
-    Worker thread for video processing
-    Runs detection pipeline in background and sends frames to UI
+    用于视频处理的工作线程
+    在后台运行检测流水线并将帧发送到UI
     """
 
-    # Signals for communication with UI
-    frame_ready = pyqtSignal(np.ndarray, dict)  # Frame and detection info
-    processing_finished = pyqtSignal(dict)  # Final statistics
-    error_occurred = pyqtSignal(str)  # Error message
-    result_ready = pyqtSignal(dict)  # Detection results statistics
+    # 用于与UI通信的信号
+    frame_ready = pyqtSignal(np.ndarray, dict)  # 帧和检测信息
+    processing_finished = pyqtSignal(dict)  # 最终统计
+    error_occurred = pyqtSignal(str)  # 错误消息
+    result_ready = pyqtSignal(dict)  # 检测结果统计
 
     def __init__(self, pipeline, mode='webcam', video_path=None, camera_index=0):
         """
-        Initialize video processing thread
+        初始化视频处理线程
 
         Args:
-            pipeline: DetectionPipeline instance
-            mode: 'webcam' or 'video'
-            video_path: Path to video file (for video mode)
-            camera_index: Camera index (for webcam mode)
+            pipeline: DetectionPipeline实例
+            mode: 'webcam' 或 'video'
+            video_path: 视频文件路径（用于视频模式）
+            camera_index: 摄像头索引（用于摄像头模式）
         """
         super().__init__()
         self.pipeline = pipeline
@@ -41,7 +41,7 @@ class VideoProcessingThread(QThread):
         self.mutex = QMutex()
 
     def run(self):
-        """Main processing loop"""
+        """主处理循环"""
         self.is_running = True
 
         try:
@@ -53,17 +53,17 @@ class VideoProcessingThread(QThread):
             self.error_occurred.emit(f"Processing error: {str(e)}")
 
     def _process_webcam(self):
-        """Process webcam feed"""
+        """处理摄像头馈送"""
         cap = cv2.VideoCapture(self.camera_index)
         if not cap.isOpened():
             self.error_occurred.emit(f"Cannot open camera {self.camera_index}")
             return
 
         try:
-            # Track start time for FPS calculation
+            # 跟踪开始时间以计算FPS
             start_time = time.time()
 
-            # Get camera information
+            # 获取摄像头信息
             camera_backend = cap.getBackendName()
             camera_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
             camera_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -74,11 +74,11 @@ class VideoProcessingThread(QThread):
                 if not ret:
                     break
 
-                # Process frame
+                # 处理帧
                 timestamp = time.time() - start_time
                 processed_frame = self.pipeline.process_frame(frame, timestamp)
 
-                # Get detection info
+                # 获取检测信息
                 elapsed = time.time() - start_time
                 info = {
                     'action': self.pipeline.current_action,
@@ -88,33 +88,33 @@ class VideoProcessingThread(QThread):
                     'resolution': f"{camera_width}x{camera_height}"
                 }
 
-                # Emit frame to UI
+                # 向UI发送帧
                 self.frame_ready.emit(processed_frame, info)
 
-                # Emit result statistics if collection is enabled
+                # 如果启用了结果收集则发送结果统计
                 if hasattr(self.pipeline, 'result_collector') and self.pipeline.result_collector:
-                    # Emit stats every 30 frames to avoid overwhelming UI
+                    # 每30帧发送一次统计信息以避免压倒UI
                     if self.pipeline.stats['frames_processed'] % 30 == 0:
                         stats = self.pipeline.result_collector.get_statistics()
                         self.result_ready.emit(stats)
 
-                # Small sleep to control frame rate and allow UI to process
+                # 小睡以控制帧率并允许UI处理
                 time.sleep(0.01)
 
-                # Check if stopped
+                # 检查是否已停止
                 with QMutexLocker(self.mutex):
                     if not self.is_running:
                         break
 
         finally:
             cap.release()
-            # CRITICAL FIX: Close video_writer to release file lock
+            # 关键修复：关闭video_writer以释放文件锁
             if self.pipeline.video_writer:
                 self.pipeline.video_writer.close()
                 self.pipeline.video_writer = None
 
     def _process_video_file(self):
-        """Process video file"""
+        """处理视频文件"""
         cap = cv2.VideoCapture(self.video_path)
         if not cap.isOpened():
             self.error_occurred.emit(f"Cannot open video file: {self.video_path}")
@@ -126,10 +126,10 @@ class VideoProcessingThread(QThread):
             video_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
             video_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
-            # Track start time for FPS calculation
+            # 跟踪开始时间以计算FPS
             start_time = time.time()
 
-            # Get device info
+            # 获取设备信息
             device_info = f"Video File ({video_width}x{video_height} @ {fps:.1f}fps)"
 
             frame_count = 0
@@ -138,11 +138,11 @@ class VideoProcessingThread(QThread):
                 if not ret:
                     break
 
-                # Process frame
+                # 处理帧
                 timestamp = frame_count / fps
                 processed_frame = self.pipeline.process_frame(frame, timestamp)
 
-                # Get detection info
+                # 获取检测信息
                 elapsed = time.time() - start_time
                 info = {
                     'action': self.pipeline.current_action,
@@ -153,31 +153,31 @@ class VideoProcessingThread(QThread):
                     'progress': frame_count / total_frames if total_frames > 0 else 0
                 }
 
-                # Emit frame to UI
+                # 向UI发送帧
                 self.frame_ready.emit(processed_frame, info)
 
-                # Emit result statistics if collection is enabled
+                # 如果启用了结果收集，则发送结果统计信息
                 if hasattr(self.pipeline, 'result_collector') and self.pipeline.result_collector:
-                    # Emit stats every 30 frames to avoid overwhelming UI
+                    # 每30帧发送一次统计信息以避免压倒UI
                     if frame_count % 30 == 0:
                         stats = self.pipeline.result_collector.get_statistics()
                         self.result_ready.emit(stats)
 
                 frame_count += 1
 
-                # Check if stopped
+                # 检查是否已停止
                 with QMutexLocker(self.mutex):
                     if not self.is_running:
                         break
 
         finally:
             cap.release()
-            # CRITICAL FIX: Close video_writer to release file lock
+            # 关键修复：关闭video_writer以释放文件锁
             if self.pipeline.video_writer:
                 self.pipeline.video_writer.close()
                 self.pipeline.video_writer = None
 
-        # Emit completion signal
+        # 发送完成信号
         stats = self.pipeline.stats
         elapsed = time.time() - start_time
         stats['average_fps'] = self.pipeline.stats['frames_processed'] / elapsed if elapsed > 0 else 0
@@ -185,10 +185,10 @@ class VideoProcessingThread(QThread):
         self.processing_finished.emit(stats)
 
     def stop(self):
-        """Stop processing"""
+        """停止处理"""
         with QMutexLocker(self.mutex):
             self.is_running = False
 
-        # Wait for thread to finish with timeout (non-blocking)
+        # 等待线程完成，带有超时（非阻塞）
         if self.isRunning():
-            self.wait(1000)  # Wait up to 1 second
+            self.wait(1000)  # 最多等待1秒

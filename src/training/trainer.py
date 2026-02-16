@@ -1,5 +1,5 @@
 """
-Training module for TSN-based video action recognition
+基于TSN的视频动作识别训练模块
 """
 
 import os
@@ -19,25 +19,25 @@ from core import create_model
 from utils import TrainingLogger
 
 
-# Set PyTorch cache directory
+# 设置PyTorch缓存目录
 torch.hub.set_dir(TrainConfig.TORCH_CACHE_DIR)
 
 
 class Trainer:
-    """Trainer class for TSN model"""
+    """TSN模型的训练器类"""
 
     def __init__(self, args):
         self.args = args
 
-        # Set device
+        # 设置设备
         self.device = torch.device(TrainConfig.DEVICE)
         print(f"Using device: {self.device}")
 
-        # Create output directories
+        # 创建输出目录
         os.makedirs(TrainConfig.SAVE_DIR, exist_ok=True)
         os.makedirs(TrainConfig.LOG_DIR, exist_ok=True)
 
-        # Setup enhanced logger
+        # 设置增强日志记录器
         log_name = f"{args.dataset}_{args.backbone}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         self.logger = TrainingLogger(
             log_dir=TrainConfig.LOG_DIR,
@@ -47,10 +47,10 @@ class Trainer:
         self.log_dir = self.logger.get_log_dir()
         print(f"TensorBoard logs: {self.log_dir}")
 
-        # Get number of classes
+        # 获取类别数
         num_classes = DataConfig.UCF101_NUM_CLASSES if args.dataset.lower() == 'ucf101' else DataConfig.HMDB51_NUM_CLASSES
 
-        # Create model
+        # 创建模型
         self.model = create_model(
             dataset=args.dataset,
             backbone=args.backbone,
@@ -60,13 +60,13 @@ class Trainer:
             frames_per_segment=args.frames_per_segment
         ).to(self.device)
 
-        # Count parameters
+        # 计算参数数量
         total_params = sum(p.numel() for p in self.model.parameters())
         trainable_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
         print(f"Total parameters: {total_params:,}")
         print(f"Trainable parameters: {trainable_params:,}")
 
-        # Create datasets
+        # 创建数据集
         self.train_dataset, self.val_dataset = self.create_datasets()
         self.train_loader = DataLoader(
             self.train_dataset,
@@ -86,13 +86,13 @@ class Trainer:
         print(f"Train samples: {len(self.train_dataset)}")
         print(f"Val samples: {len(self.val_dataset)}")
 
-        # Loss function with label smoothing support
+        # 支持标签平滑的损失函数
         label_smoothing = getattr(args, 'label_smoothing', 0.0)
         self.criterion = nn.CrossEntropyLoss(label_smoothing=label_smoothing)
         if label_smoothing > 0:
             print(f"Using label smoothing: {label_smoothing}")
 
-        # Optimizer with configurable weight decay
+        # 可配置权重衰减的优化器
         weight_decay = getattr(args, 'weight_decay', TrainConfig.WEIGHT_DECAY)
         self.optimizer = optim.SGD(
             self.model.parameters(),
@@ -102,7 +102,7 @@ class Trainer:
         )
         print(f"Weight decay: {weight_decay}")
 
-        # Learning rate scheduler (support both step and cosine)
+        # 学习率调度器（同时支持步进和余弦）
         scheduler_type = getattr(args, 'scheduler', 'step')
         if scheduler_type == 'cosine':
             t_max = getattr(args, 't_max', args.epochs)
@@ -120,18 +120,18 @@ class Trainer:
             )
             print(f"Using step LR scheduler (step_size={args.step_size}, gamma={args.gamma})")
 
-        # Training state
+        # 训练状态
         self.current_epoch = 0
         self.best_acc = 0.0
         self.early_stopping_counter = 0
         self.save_dir = TrainConfig.SAVE_DIR
 
-        # Gradient clipping
+        # 梯度裁剪
         self.grad_clip = getattr(args, 'grad_clip', 0.0)
         if self.grad_clip > 0:
             print(f"Gradient clipping enabled: {self.grad_clip}")
 
-        # Mixup/CutMix augmentation
+        # Mixup/CutMix数据增强
         self.mixup_alpha = getattr(args, 'mixup_alpha', 0.0)
         self.cutmix_alpha = getattr(args, 'cutmix_alpha', 0.0)
         self.aug_type = getattr(args, 'aug_type', 'mixup')
@@ -147,10 +147,10 @@ class Trainer:
         else:
             self.use_augmentation = False
 
-        # Resume from checkpoint (for evaluation or continuing training)
+        # 从检查点恢复（用于评估或继续训练）
         if args.resume:
             self.load_resume_checkpoint(args.resume)
-        # Fine-tuning setup
+        # 微调设置
         elif args.finetune:
             self.load_finetune_checkpoint(args.finetune, args.freeze_backbone)
             self.frozen_epochs = args.freeze_epochs if args.freeze_backbone else 0
@@ -160,7 +160,7 @@ class Trainer:
             self.frozen_epochs = 0
             self.finetune_lr = None
 
-        # Print layer freeze status
+        # 打印层冻结状态
         frozen_layers = [n for n, p in self.model.named_parameters() if not p.requires_grad]
         if frozen_layers:
             print(f"Frozen layers: {len(frozen_layers)}")
@@ -169,7 +169,7 @@ class Trainer:
 
     def load_finetune_checkpoint(self, checkpoint_path, freeze_backbone):
         """
-        Load pre-trained checkpoint for fine-tuning.
+        加载预训练检查点进行微调。
         """
         print(f"\n{'='*50}")
         print(f"Fine-tuning from: {checkpoint_path}")
@@ -181,7 +181,7 @@ class Trainer:
 
         model_state_dict = self.model.state_dict()
 
-        # Load weights, handling size mismatches for classifier head
+        # 加载权重，处理分类头的大小不匹配
         loaded_keys = []
         skipped_keys = []
 
@@ -192,7 +192,7 @@ class Trainer:
 
             current_param = model_state_dict[key]
 
-            # Skip classifier head if sizes don't match
+            # 如果大小不匹配则跳过分类头
             if 'classifier' in key and pretrained_param.shape != current_param.shape:
                 print(f"  Skip {key}: pretrained {pretrained_param.shape} -> current {current_param.shape}")
                 skipped_keys.append(f"{key} (size mismatch)")
@@ -211,7 +211,7 @@ class Trainer:
             if len(skipped_keys) > 5:
                 print(f"  ... and {len(skipped_keys) - 5} more")
 
-        # Freeze backbone if requested
+        # 如果需要则冻结骨干网络
         if freeze_backbone:
             print("Freezing backbone parameters...")
             for name, param in self.model.named_parameters():
@@ -226,8 +226,8 @@ class Trainer:
 
     def load_resume_checkpoint(self, checkpoint_path):
         """
-        Load checkpoint for resuming training or evaluation.
-        Loads model weights and optionally optimizer/scheduler state.
+        加载检查点以恢复训练或评估。
+        加载模型权重以及可选的优化器/调度器状态。
         """
         print(f"\n{'='*50}")
         print(f"Resuming from checkpoint: {checkpoint_path}")
@@ -236,10 +236,10 @@ class Trainer:
         checkpoint = torch.load(checkpoint_path, map_location=self.device)
         checkpoint_state_dict = checkpoint['model_state_dict']
 
-        # Load model weights
+        # 加载模型权重
         self.model.load_state_dict(checkpoint_state_dict)
 
-        # Load optimizer and scheduler if available
+        # 加载优化器和调度器（如果可用）
         if 'optimizer_state_dict' in checkpoint and hasattr(self, 'optimizer'):
             self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
             print("Loaded optimizer state")
@@ -248,7 +248,7 @@ class Trainer:
             self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
             print("Loaded scheduler state")
 
-        # Restore training state if available
+        # 如果可用则恢复训练状态
         self.current_epoch = checkpoint.get('epoch', 0)
         self.best_acc = checkpoint.get('best_acc', 0.0)
 
@@ -276,7 +276,7 @@ class Trainer:
         print(f"Trainable parameters: {trainable_params:,}")
 
     def create_datasets(self):
-        """Create train and validation datasets"""
+        """创建训练和验证数据集"""
         train_transform = get_train_transform()
         val_transform = get_test_transform()
 
@@ -320,7 +320,7 @@ class Trainer:
         return train_dataset, val_dataset
 
     def _get_config_dict(self, args) -> dict:
-        """Get configuration dictionary for logging."""
+        """获取用于记录的配置字典。"""
         return {
             'dataset': args.dataset,
             'backbone': args.backbone,
@@ -343,7 +343,7 @@ class Trainer:
         }
 
     def train_epoch(self):
-        """Train for one epoch"""
+        """训练一个轮次"""
         self.model.train()
         running_loss = 0.0
         correct = 0
@@ -412,7 +412,7 @@ class Trainer:
         return epoch_loss, epoch_acc
 
     def validate(self):
-        """Validate model"""
+        """验证模型"""
         self.model.eval()
         running_loss = 0.0
         correct = 0
@@ -440,14 +440,14 @@ class Trainer:
         return epoch_loss, epoch_acc
 
     def save_checkpoint(self, filename, is_best=False):
-        """Save model checkpoint"""
+        """保存模型检查点"""
         checkpoint = {
             'epoch': self.current_epoch,
             'model_state_dict': self.model.state_dict(),
             'optimizer_state_dict': self.optimizer.state_dict(),
             'scheduler_state_dict': self.scheduler.state_dict(),
             'best_acc': self.best_acc,
-            # Add model configuration metadata
+            # 添加模型配置元数据
             'config': {
                 'backbone': self.model.backbone_name,
                 'num_classes': self.model.num_classes,
@@ -468,19 +468,19 @@ class Trainer:
             print(f"Best checkpoint saved to {best_path}")
 
     def log_gradients(self, step):
-        """Log gradient histograms and norms."""
+        """记录梯度直方图和范数。"""
         self.logger.log_gradients(self.model, step)
 
     def log_parameters(self, step):
-        """Log parameter histograms and norms."""
+        """记录参数直方图和范数。"""
         self.logger.log_parameters(self.model, step)
 
     def log_model_graph(self, sample_input):
-        """Log model computation graph."""
+        """记录模型计算图。"""
         self.logger.log_model_graph(self.model, sample_input)
 
     def log_epoch_metrics(self, train_loss, train_acc, val_loss, val_acc, epoch):
-        """Log end-of-epoch metrics."""
+        """记录轮次结束时的指标。"""
         lr = self.optimizer.param_groups[0]['lr']
         self.logger.log_epoch_metrics(
             train_loss=train_loss,
@@ -490,17 +490,17 @@ class Trainer:
             epoch=epoch,
             lr=lr
         )
-        # Force flush after epoch
+        # 轮次后强制刷新
         self.logger.flush()
 
     def log_hyperparams(self, config):
-        """Log hyperparameters."""
+        """记录超参数。"""
         self.logger.log_hyperparams(config)
 
     def close_logger(self):
-        """Close the logger and ensure all data is written."""
+        """关闭日志记录器并确保所有数据已写入。"""
         self.logger.close()
 
     def verify_logs(self):
-        """Verify log file integrity."""
+        """验证日志文件完整性。"""
         return self.logger.verify_logs()

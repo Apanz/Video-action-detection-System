@@ -40,79 +40,79 @@ class VideoDataset(Dataset):
         self.mode = mode
         self.target_frames = target_frames
 
-        # Total frames to sample
+        # 采样的总帧数
         self.num_frames = num_segments * frames_per_segment
 
     def _load_video_frames(self, video_path):
-        """Load frames from video file"""
+        """从视频文件加载帧"""
         cap = cv2.VideoCapture(video_path)
         frames = []
 
-        # Get total frame count
+        # 获取总帧数
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
-        # Sample frame indices
+        # 采样帧索引
         if self.mode == 'train':
-            # Random sampling for training
+            # 训练时随机采样
             frame_indices = sorted(random.sample(range(total_frames),
                                                  min(self.num_frames, total_frames)))
         else:
-            # Uniform sampling for testing
+            # 测试时均匀采样
             frame_indices = np.linspace(0, total_frames - 1,
                                         min(self.num_frames, total_frames),
                                         dtype=int).tolist()
 
-        # Load frames
+        # 加载帧
         for idx in frame_indices:
             cap.set(cv2.CAP_PROP_POS_FRAMES, idx)
             ret, frame = cap.read()
             if ret:
-                # Convert BGR to RGB
+                # 将BGR转换为RGB
                 frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 frames.append(frame)
             else:
-                # Fallback: repeat last frame if read fails
+                # 回退：读取失败时重复最后一帧
                 if frames:
                     frames.append(frames[-1])
                 else:
-                    # Create blank frame
+                    # 创建空白帧
                     frames.append(np.zeros((224, 224, 3), dtype=np.uint8))
 
         cap.release()
 
-        # Pad with last frame if needed
+        # 需要时用最后一帧填充
         while len(frames) < self.num_frames:
             frames.append(frames[-1])
 
         return frames
 
     def _load_frame_images(self, frame_dir):
-        """Load frames from pre-extracted frame images"""
+        """从预提取的帧图像加载"""
         frame_files = sorted([f for f in os.listdir(frame_dir) if f.endswith('.jpg')])
 
-        # Sample frame indices
+        # 采样帧索引
         total_frames = len(frame_files)
         if total_frames == 0:
             return [np.zeros((224, 224, 3), dtype=np.uint8)] * self.num_frames
 
         if self.mode == 'train':
-            # Random sampling for training
+            # 训练时随机采样
             frame_indices = sorted(random.sample(range(total_frames),
                                                  min(self.num_frames, total_frames)))
         else:
-            # Uniform sampling for testing
+            # 测试时均匀采样
             frame_indices = np.linspace(0, total_frames - 1,
                                         min(self.num_frames, total_frames),
                                         dtype=int).tolist()
 
-        # Load frames
+        # 加载帧
         frames = []
         for idx in frame_indices:
             frame_path = os.path.join(frame_dir, frame_files[idx])
             frame = Image.open(frame_path).convert('RGB')
             frames.append(np.array(frame))
 
-        # Pad with last frame if needed
+        # 需要时用最后一帧填充
         while len(frames) < self.num_frames:
             frames.append(frames[-1])
 
@@ -120,12 +120,12 @@ class VideoDataset(Dataset):
 
     def _sample_frames_tsn(self, frames):
         """
-        TSN-style temporal segment sampling
-        Divides video into segments and samples frames from each
+        TSN风格的时序片段采样
+        将视频分成片段并从每个片段中采样帧
         """
         num_available = len(frames)
 
-        # Calculate segment boundaries
+        # 计算片段边界
         segment_size = num_available // self.num_segments
         if segment_size < 1:
             segment_size = 1
@@ -136,19 +136,19 @@ class VideoDataset(Dataset):
             end_idx = min(start_idx + segment_size, num_available)
 
             if self.mode == 'train':
-                # Random position within segment
+                # 片段内的随机位置
                 frame_idx = random.randint(start_idx, max(start_idx, end_idx - 1))
             else:
-                # Center of segment
+                # 片段的中心
                 frame_idx = (start_idx + end_idx) // 2
 
             sampled_indices.append(frame_idx)
 
-        # Sample frames_per_segment frames around each segment center
+        # 在每个片段中心周围采样frames_per_segment帧
         result_frames = []
         for idx in sampled_indices:
             for _ in range(self.frames_per_segment):
-                # Add some randomness for training
+                # 为训练添加一些随机性
                 offset = random.randint(-2, 2) if self.mode == 'train' else 0
                 actual_idx = max(0, min(num_available - 1, idx + offset))
                 result_frames.append(frames[actual_idx])
@@ -162,27 +162,27 @@ class VideoDataset(Dataset):
         video_path = self.video_paths[idx]
         label = self.labels[idx]
 
-        # Check if video file or frame directory
+        # 检查是视频文件还是帧目录
         if video_path.endswith('.avi'):
             frames = self._load_video_frames(video_path)
         else:
             frames = self._load_frame_images(video_path)
 
-        # TSN-style sampling
+        # TSN风格采样
         frames = self._sample_frames_tsn(frames)
 
-        # Transform frames
+        # 转换帧
         if self.transform:
             transformed_frames = []
             for frame in frames:
-                # Convert to PIL Image if needed
+                # 需要时转换为PIL图像
                 if isinstance(frame, np.ndarray):
                     frame = Image.fromarray(frame)
                 transformed = self.transform(frame)
                 transformed_frames.append(transformed)
             frames = torch.stack(transformed_frames)
         else:
-            # Default transform
+            # 默认转换
             default_transform = transforms.Compose([
                 transforms.ToPILImage() if isinstance(frames[0], np.ndarray) else lambda x: x,
                 transforms.Resize(224),
@@ -223,7 +223,7 @@ class UCF101Dataset(Dataset):
             frames_per_segment: Frames per segment
             transform: Image transformations
         """
-        # Normalize paths for Windows compatibility
+        # 标准化路径以兼容Windows
         self.root_dir = os.path.normpath(root_dir)
         split_dir = os.path.normpath(split_dir)
         self.mode = mode
@@ -231,7 +231,7 @@ class UCF101Dataset(Dataset):
         self.frames_per_segment = frames_per_segment
         self.transform = transform
 
-        # Load class index
+        # 加载类别索引
         class_ind_file = os.path.join(split_dir, 'classInd.txt')
         self.class_names = []
         with open(class_ind_file, 'r') as f:
@@ -239,7 +239,7 @@ class UCF101Dataset(Dataset):
                 class_id, class_name = line.strip().split(' ')
                 self.class_names.append(class_name)
 
-        # Load split file
+        # 加载分割文件
         if mode == 'train':
             split_file = os.path.join(split_dir, f'trainlist{split_id:02d}.txt')
         else:
@@ -252,13 +252,13 @@ class UCF101Dataset(Dataset):
             for line in f:
                 parts = line.strip().split(' ')
                 if mode == 'train':
-                    # Format: v_Basketball_g01_c01.avi 1
+                    # 格式: v_Basketball_g01_c01.avi 1
                     video_name = parts[0]
-                    label = int(parts[1]) - 1  # Convert to 0-based
+                    label = int(parts[1]) - 1  # 转换为从0开始
                 else:
-                    # Format: v_Basketball_g01_c01.avi
+                    # 格式: v_Basketball_g01_c01.avi
                     video_name = parts[0]
-                    # Extract class name and find label
+                    # 提取类别名称并查找标签
                     class_name = video_name.split('/')[0]
                     try:
                         label = self.class_names.index(class_name)
@@ -277,37 +277,37 @@ class UCF101Dataset(Dataset):
 
     def _sample_frames_tsn(self, total_frames: int, num_frames: int):
         """
-        Sample frames using proper TSN temporal segment strategy.
+        使用正确的TSN时序片段策略采样帧。
 
-        TSN divides video into num_segments, then samples frames_per_segment
-        from each segment. This is the core principle of Temporal Segment Networks.
+        TSN将视频分成num_segments个片段，然后从每个片段中采样frames_per_segment帧。
+这是时序片段网络的核心原理。
 
         Args:
-            total_frames: Total number of frames in the video
-            num_frames: Total frames to sample (num_segments * frames_per_segment)
+            total_frames: 视频中的总帧数
+            num_frames: 要采样的总帧数（num_segments * frames_per_segment）
 
         Returns:
-            List of frame indices sorted in ascending order
+            按升序排列的帧索引列表
         """
         frame_indices = []
 
-        # Calculate segment size
+        # 计算片段大小
         segment_size = total_frames // self.num_segments
 
         for seg_idx in range(self.num_segments):
             start_idx = seg_idx * segment_size
             end_idx = start_idx + segment_size
 
-            # For last segment, include all remaining frames
+            # 对于最后一个片段，包含所有剩余帧
             if seg_idx == self.num_segments - 1:
                 end_idx = total_frames
 
-            # Sample frames within this segment
+            # 在此片段内采样帧
             seg_frame_count = self.frames_per_segment
             seg_frame_count = min(seg_frame_count, end_idx - start_idx)
 
             if self.mode == 'train':
-                # Random sampling with temporal jitter (as in TSN paper)
+                # 带时序抖动的随机采样（如TSN论文中所述）
                 if end_idx - start_idx > seg_frame_count:
                     seg_indices = np.random.choice(
                         range(start_idx, end_idx),
@@ -315,17 +315,17 @@ class UCF101Dataset(Dataset):
                         replace=False
                     )
                 else:
-                    # Not enough frames in this segment, use all with repetition
+                    # 此片段中没有足够的帧，使用所有帧并重复
                     seg_indices = list(range(start_idx, end_idx))
                     while len(seg_indices) < seg_frame_count:
                         seg_indices.append(seg_indices[-1])
             else:
-                # Uniform sampling within segment (test/validation mode)
+                # 片段内均匀采样（测试/验证模式）
                 if end_idx - start_idx <= seg_frame_count:
-                    # Use all frames in segment
+                    # 使用片段中的所有帧
                     seg_indices = list(range(start_idx, end_idx))
                 else:
-                    # Sample uniformly within segment
+                    # 在片段内均匀采样
                     seg_indices = np.linspace(
                         start_idx, end_idx - 1,
                         num=seg_frame_count, dtype=int
@@ -339,14 +339,14 @@ class UCF101Dataset(Dataset):
         video_path = self.video_paths[idx]
         label = self.labels[idx]
 
-        # Load video frames
+        # 加载视频帧
         cap = cv2.VideoCapture(video_path)
         frames = []
 
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         num_frames = self.num_segments * self.frames_per_segment
 
-        # Sample frame indices using proper TSN temporal segment strategy
+        # 使用正确的TSN时序片段策略采样帧索引
         frame_indices = self._sample_frames_tsn(total_frames, num_frames)
 
         for idx in frame_indices:
@@ -362,11 +362,11 @@ class UCF101Dataset(Dataset):
 
         cap.release()
 
-        # Pad if needed
+        # 需要时填充
         while len(frames) < num_frames:
             frames.append(frames[-1])
 
-        # Transform frames
+        # 转换帧
         if self.transform:
             transformed_frames = [self.transform(f) for f in frames]
         else:
@@ -408,16 +408,16 @@ class HMDB51Dataset(Dataset):
         self.frames_per_segment = frames_per_segment
         self.transform = transform
 
-        # Get all action classes
+        # 获取所有动作类别
         self.class_names = sorted([d for d in os.listdir(root_dir)
                                   if os.path.isdir(os.path.join(root_dir, d))])
 
-        # Collect video paths and labels
+        # 收集视频路径和标签
         self.video_paths = []
         self.labels = []
 
         if split_dir and os.path.exists(split_dir):
-            # Load from split file if available
+            # 如果存在分割文件则从其加载
             split_file = os.path.join(split_dir, f'{mode}.txt')
             if os.path.exists(split_file):
                 with open(split_file, 'r') as f:
@@ -428,16 +428,16 @@ class HMDB51Dataset(Dataset):
                             self.video_paths.append(full_path)
                             self.labels.append(int(label))
             else:
-                # Create splits manually
+                # 手动创建分割
                 self._create_splits()
         else:
-            # No splits provided, create train/val split
+            # 未提供分割，创建训练/验证分割
             self._create_splits()
 
         print(f"Loaded {len(self.video_paths)} {mode} samples from HMDB51")
 
     def _create_splits(self, train_ratio=0.8):
-        """Create train/val splits from available data"""
+        """从可用数据创建训练/验证分割"""
         all_videos = []
         all_labels = []
 
@@ -450,7 +450,7 @@ class HMDB51Dataset(Dataset):
                         all_videos.append(video_path)
                         all_labels.append(class_id)
 
-        # Shuffle and split
+        # 打乱并分割
         indices = list(range(len(all_videos)))
         random.seed(42)
         random.shuffle(indices)
@@ -472,35 +472,35 @@ class HMDB51Dataset(Dataset):
         video_dir = self.video_paths[idx]
         label = self.labels[idx]
 
-        # Get all frame files
+        # 获取所有帧文件
         frame_files = sorted([f for f in os.listdir(video_dir)
                               if f.endswith('.jpg') or f.endswith('.png')])
 
         num_frames = self.num_segments * self.frames_per_segment
 
-        # Sample frame indices (TSN style)
+        # 采样帧索引（TSN风格）
         if self.mode == 'train':
-            # Random sampling
+            # 随机采样
             frame_indices = sorted(random.sample(range(len(frame_files)),
                                                  min(num_frames, len(frame_files))))
         else:
-            # Uniform sampling
+            # 均匀采样
             frame_indices = np.linspace(0, len(frame_files) - 1,
                                         min(num_frames, len(frame_files)),
                                         dtype=int).tolist()
 
-        # Load frames
+        # 加载帧
         frames = []
         for idx in frame_indices:
             frame_path = os.path.join(video_dir, frame_files[idx])
             frame = Image.open(frame_path).convert('RGB')
             frames.append(frame)
 
-        # Pad if needed
+        # 需要时填充
         while len(frames) < num_frames:
             frames.append(frames[-1])
 
-        # Transform frames
+        # 转换帧
         if self.transform:
             transformed_frames = [self.transform(f) for f in frames]
         else:
@@ -521,30 +521,30 @@ class HMDB51Dataset(Dataset):
 
 def get_train_transform(aggressive=True):
     """
-    Get training transformations with data augmentation
+    获取带数据增强的训练转换
 
     Args:
-        aggressive: If True, uses more aggressive augmentation for better regularization
+        aggressive: 如果为True，使用更激进的增强以获得更好的正则化效果
 
     Returns:
-        Transform pipeline
+        转换流水线
     """
     if aggressive:
-        # More aggressive augmentation for better regularization
+        # 更激进的增强以获得更好的正则化效果
         return transforms.Compose([
-            transforms.RandomResizedCrop(224, scale=(0.7, 1.0)),  # Wider scale range
+            transforms.RandomResizedCrop(224, scale=(0.7, 1.0)),  # 更宽的缩放范围
             transforms.RandomHorizontalFlip(p=0.5),
-            transforms.RandomVerticalFlip(p=0.1),  # Occasionally flip vertically
-            transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3, hue=0.1),  # Stronger color jitter
-            transforms.RandomRotation(degrees=15),  # Random rotation
-            transforms.RandomAffine(degrees=0, translate=(0.1, 0.1), scale=(0.9, 1.1)),  # Random translation and scale
+            transforms.RandomVerticalFlip(p=0.1),  # 偶尔垂直翻转
+            transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3, hue=0.1),  # 更强的颜色抖动
+            transforms.RandomRotation(degrees=15),  # 随机旋转
+            transforms.RandomAffine(degrees=0, translate=(0.1, 0.1), scale=(0.9, 1.1)),  # 随机平移和缩放
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                  std=[0.229, 0.224, 0.225]),
-            transforms.RandomErasing(p=0.2, scale=(0.02, 0.15), ratio=(0.3, 3.3)),  # Random erasing
+            transforms.RandomErasing(p=0.2, scale=(0.02, 0.15), ratio=(0.3, 3.3)),  # 随机擦除
         ])
     else:
-        # Original moderate augmentation
+        # 原始适度增强
         return transforms.Compose([
             transforms.RandomResizedCrop(224, scale=(0.8, 1.0)),
             transforms.RandomHorizontalFlip(p=0.5),
@@ -556,7 +556,7 @@ def get_train_transform(aggressive=True):
 
 
 def get_test_transform():
-    """Get test/val transformations"""
+    """获取测试/验证转换"""
     return transforms.Compose([
         transforms.Resize(256),
         transforms.CenterCrop(224),
@@ -568,50 +568,50 @@ def get_test_transform():
 
 class MixupAugmentation:
     """
-    Mixup data augmentation for video action recognition
-    Blends two videos and their labels with a random mixing coefficient
+    用于视频动作识别的Mixup数据增强
+    使用随机混合系数混合两个视频及其标签
 
-    Reference: "mixup: Beyond Empirical Risk Minimization" (Zhang et al., 2018)
+    参考: "mixup: Beyond Empirical Risk Minimization" (Zhang et al., 2018)
     """
 
     def __init__(self, alpha=0.2, num_classes=101):
         """
         Args:
-            alpha: Beta distribution parameter for mixing coefficient
-            num_classes: Number of classes for one-hot encoding
+            alpha: 混合系数的Beta分布参数
+            num_classes: 独热编码的类别数
         """
         self.alpha = alpha
         self.num_classes = num_classes
 
     def __call__(self, batch):
         """
-        Apply mixup to a batch of videos and labels
+        对一批视频和标签应用mixup
 
         Args:
-            batch: Dictionary with 'video' and 'label' keys
-                   video shape: (B, T, C, H, W)
-                   label shape: (B,)
+            batch: 包含'video'和'label'键的字典
+                   video形状: (B, T, C, H, W)
+                   label形状: (B,)
 
         Returns:
-            Mixed batch with same structure
+            具有相同结构的混合批次
         """
         videos = batch['video']
         labels = batch['label']
         batch_size = videos.size(0)
 
         if self.alpha > 0:
-            # Sample mixing coefficient from Beta distribution
+            # 从Beta分布采样混合系数
             lam = np.random.beta(self.alpha, self.alpha)
         else:
             lam = 1.0
 
-        # Randomly shuffle indices for second sample
+        # 随机打乱第二个样本的索引
         rand_index = torch.randperm(batch_size).to(videos.device)
 
-        # Mix videos
+        # 混合视频
         mixed_videos = lam * videos + (1 - lam) * videos[rand_index]
 
-        # Mix labels using one-hot encoding
+        # 使用独热编码混合标签
         labels_one_hot = torch.zeros(batch_size, self.num_classes).to(videos.device)
         labels_one_hot.scatter_(1, labels.unsqueeze(1), 1.0)
 
@@ -631,18 +631,18 @@ class MixupAugmentation:
 
 class CutMixAugmentation:
     """
-    CutMix data augmentation for video action recognition
-    Cuts a box from one video and pastes it onto another
+    用于视频动作识别的CutMix数据增强
+    从一个视频中剪切一个框并将其粘贴到另一个视频上
 
-    Reference: "CutMix: Regularization Strategy to Train Strong Classifiers"
+    参考: "CutMix: Regularization Strategy to Train Strong Classifiers"
     """
 
     def __init__(self, beta=1.0, num_classes=101, prob=0.5):
         """
         Args:
-            beta: Beta distribution parameter
-            num_classes: Number of classes
-            prob: Probability of applying CutMix
+            beta: Beta分布参数
+            num_classes: 类别数
+            prob: 应用CutMix的概率
         """
         self.beta = beta
         self.num_classes = num_classes
@@ -650,21 +650,21 @@ class CutMixAugmentation:
 
     def __call__(self, batch):
         """
-        Apply CutMix to a batch of videos and labels
+        对一批视频和标签应用CutMix
 
         Args:
-            batch: Dictionary with 'video' and 'label' keys
-                   video shape: (B, T, C, H, W)
-                   label shape: (B,)
+            batch: 包含'video'和'label'键的字典
+                   video形状: (B, T, C, H, W)
+                   label形状: (B,)
 
         Returns:
-            CutMix batch with same structure
+            具有相同结构的CutMix批次
         """
         videos = batch['video']
         labels = batch['label']
         batch_size = videos.size(0)
 
-        # Only apply CutMix with certain probability
+        # 仅以特定概率应用CutMix
         if torch.rand(1).item() > self.prob:
             return {
                 'video': videos,
@@ -675,32 +675,32 @@ class CutMixAugmentation:
         lam = np.random.beta(self.beta, self.beta)
         rand_index = torch.randperm(batch_size).to(videos.device)
 
-        # Get image dimensions
+        # 获取图像维度
         _, _, _, H, W = videos.shape
 
-        # Sample bounding box
+        # 采样边界框
         cut_rat = np.sqrt(1.0 - lam)
         cut_w = int(W * cut_rat)
         cut_h = int(H * cut_rat)
 
-        # Sample center position
+        # 采样中心位置
         cx = np.random.randint(W)
         cy = np.random.randint(H)
 
-        # Get box coordinates
+        # 获取框坐标
         bbx1 = np.clip(cx - cut_w // 2, 0, W)
         bby1 = np.clip(cy - cut_h // 2, 0, H)
         bbx2 = np.clip(cx + cut_w // 2, 0, W)
         bby2 = np.clip(cy + cut_h // 2, 0, H)
 
-        # Create modified videos
+        # 创建修改后的视频
         cutmix_videos = videos.clone()
         cutmix_videos[:, :, :, bby1:bby2, bbx1:bbx2] = videos[rand_index, :, :, bby1:bby2, bbx1:bbx2]
 
-        # Calculate adjusted lambda based on actual box area
+        # 根据实际框面积计算调整后的lambda
         lam = 1 - ((bbx2 - bbx1) * (bby2 - bby1) / (W * H))
 
-        # Mix labels
+        # 混合标签
         labels_one_hot = torch.zeros(batch_size, self.num_classes).to(videos.device)
         labels_one_hot.scatter_(1, labels.unsqueeze(1), 1.0)
 
