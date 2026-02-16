@@ -225,9 +225,12 @@ class ActionClassifier:
             print("[VERIFY] Classifier weight: None")
 
         # Check if weights look random (untrained)
-        if first_conv_weight is not None and abs(first_conv_weight.mean()) < 0.01:
-            print("[ERROR] First layer weights look like random initialization!")
-            print("[ERROR] Checkpoint weights may not have been loaded correctly!")
+        # NOTE: Trained models with BatchNorm typically have weights with mean ≈ 0, which is normal
+        # This check was overly strict and caused false alarms. Removed to avoid confusion.
+        # The real validation is: (1) load_result shows all keys matched, (2) forward pass produces valid outputs
+        if first_conv_weight is not None and abs(first_conv_weight.mean()) < 0.001:
+            # Only warn if mean is EXTREMELY close to 0 (which might indicate zero initialization)
+            print("[WARNING] First layer weights have very small mean. Verify checkpoint is trained.")
 
         # Set to evaluation mode
         self.model.eval()

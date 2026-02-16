@@ -76,12 +76,22 @@ class ModelMetadata:
 
             # Infer dataset from num_classes
             if 'num_classes' in metadata:
-                if metadata['num_classes'] == ModelMetadata.UCF101_CLASSES:
-                    metadata['dataset'] = 'ucf101'
-                elif metadata['num_classes'] == ModelMetadata.HMDB51_CLASSES:
-                    metadata['dataset'] = 'hmdb51'
-                else:
-                    metadata['dataset'] = f'custom({metadata["num_classes"]}_classes)'
+                # Ensure num_classes is an integer for comparison
+                try:
+                    num_classes = int(metadata['num_classes'])
+
+                    if num_classes == ModelMetadata.UCF101_CLASSES:
+                        metadata['dataset'] = 'ucf101'
+                        print(f"[ModelMetadata] Inferred dataset: ucf101 (num_classes={num_classes})")
+                    elif num_classes == ModelMetadata.HMDB51_CLASSES:
+                        metadata['dataset'] = 'hmdb51'
+                        print(f"[ModelMetadata] Inferred dataset: hmdb51 (num_classes={num_classes})")
+                    else:
+                        metadata['dataset'] = f'custom({num_classes}_classes)'
+                        print(f"[ModelMetadata] Inferred dataset: custom (num_classes={num_classes})")
+                except (ValueError, TypeError):
+                    print(f"[ModelMetadata] Warning: Could not convert num_classes to int: {metadata['num_classes']}")
+                    metadata['dataset'] = 'unknown'
 
             # Set defaults for missing fields
             metadata.setdefault('backbone', 'unknown')
@@ -89,6 +99,14 @@ class ModelMetadata:
             metadata.setdefault('num_segments', 'unknown')
             metadata.setdefault('frames_per_segment', 'unknown')
             metadata.setdefault('dataset', 'unknown')
+
+            # Debug: Print extracted metadata for troubleshooting
+            print(f"[ModelMetadata] Extracted from {metadata['filename']}:")
+            print(f"  Num classes: {metadata.get('num_classes')}")
+            print(f"  Dataset: {metadata.get('dataset')}")
+            print(f"  Backbone: {metadata.get('backbone')}")
+            print(f"  Num segments: {metadata.get('num_segments')}")
+            print(f"  Frames per segment: {metadata.get('frames_per_segment')}")
 
             return metadata
 
@@ -122,15 +140,49 @@ class ModelMetadata:
             # Still extract training info below
         else:
             # Detect backbone from layer names (legacy checkpoints)
+            # Use the same detection logic as action_classifier.py
             state_keys = list(state_dict.keys())
 
             # Try to detect backbone architecture
-            if any('resnet' in k.lower() for k in state_keys):
-                # Detect ResNet version
-                if any('layer4' in k for k in state_keys):
-                    metadata['backbone'] = 'resnet50' if any('bn3' in k for k in state_keys) else 'resnet18'
-                else:
+            if any('backbone.layer' in k for k in state_keys):
+                # Count blocks in each layer to determine ResNet variant
+                blocks = {}
+                for key in state_dict.keys():
+                    if 'backbone.layer' in key and '.conv1.weight' in key:
+                        layer_name = key.split('.')[1]
+                        block_idx = int(key.split('.')[2])
+                        blocks[layer_name] = max(blocks.get(layer_name, 0), block_idx + 1)
+
+                # Determine backbone based on block counts
+                total_blocks = sum(blocks.values())
+
+                if total_blocks == 8:
                     metadata['backbone'] = 'resnet18'
+                elif total_blocks == 16:
+                    # ResNet-34 and ResNet-50 both have 16 blocks
+                    # Check kernel size to determine block type:
+                    # BasicBlock (ResNet-34): conv1 uses 3x3 kernels
+                    # Bottleneck (ResNet-50): conv1 uses 1x1 kernels
+                    conv1_key = None
+                    for key in state_dict.keys():
+                        if 'backbone.layer1.0.conv1.weight' in key:
+                            conv1_key = key
+                            break
+
+                    if conv1_key is not None:
+                        kernel_size = state_dict[conv1_key].shape[-1]
+                        if kernel_size == 1:
+                            metadata['backbone'] = 'resnet50'
+                        elif kernel_size == 3:
+                            metadata['backbone'] = 'resnet34'
+                        else:
+                            metadata['backbone'] = 'unknown'
+                    else:
+                        metadata['backbone'] = 'unknown'
+                elif total_blocks == 36:
+                    metadata['backbone'] = 'resnet101'
+                else:
+                    metadata['backbone'] = f'unknown ({total_blocks} blocks)'
             elif any('inception' in k.lower() for k in state_keys):
                 metadata['backbone'] = 'inception_v3'
             elif any('vgg' in k.lower() for k in state_keys):
@@ -141,11 +193,25 @@ class ModelMetadata:
                 metadata['backbone'] = 'unknown'
 
             # Try to extract num_classes from final layer
+            # TSN models may use different classifier key patterns:
+            # - 'fc.weight' (original TSN)
+            # - 'classifier.1.weight' (newer TSN with MLP head)
+            # - 'classifier.weight' (generic)
+            num_classes_key = None
             for key in state_keys:
-                if 'fc.weight' in key or 'classifier.weight' in key:
-                    num_classes = state_dict[key].shape[0]
-                    metadata['num_classes'] = num_classes
+                # Check for various classifier patterns
+                if 'fc.weight' in key:
+                    num_classes_key = key
                     break
+                elif 'classifier' in key and 'weight' in key:
+                    # Use the last layer in classifier (usually the final linear layer)
+                    # e.g., 'classifier.1.weight' or 'classifier.3.weight'
+                    if not num_classes_key or key > num_classes_key:
+                        num_classes_key = key
+
+            if num_classes_key:
+                metadata['num_classes'] = int(state_dict[num_classes_key].shape[0])
+                print(f"[ModelMetadata] Found num_classes={metadata['num_classes']} from key '{num_classes_key}'")
 
             # Try to extract num_segments from new_weights shape
             # (in TSN, new_weights has shape [num_segments, C, 1, 1])
@@ -153,8 +219,25 @@ class ModelMetadata:
                 if 'new_weights' in key:
                     shape = state_dict[key].shape
                     if len(shape) >= 1:
-                        metadata['num_segments'] = shape[0]
+                        metadata['num_segments'] = int(shape[0])
                     break
+
+            # If num_segments still unknown, try to infer from model structure
+            if metadata.get('num_segments', 'unknown') == 'unknown':
+                # Some checkpoints store this in different formats
+                # Check if we can infer from cons_weight or other TSN-specific layers
+                for key in state_keys:
+                    if 'cons_weight' in key or 'new_weights' in key:
+                        shape = state_dict[key].shape
+                        if len(shape) >= 1 and shape[0] < 10:  # Reasonable segment count
+                            metadata['num_segments'] = int(shape[0])
+                            break
+
+            # If still unknown, use common default for UCF101 models
+            if metadata.get('num_segments', 'unknown') == 'unknown':
+                # Most UCF101 TSN models use 3 segments by default
+                # This matches the default in action_classifier.py
+                metadata['num_segments'] = 3
 
         # Extract training info if available
         if 'epoch' in checkpoint:
@@ -166,8 +249,22 @@ class ModelMetadata:
             metadata['best_accuracy'] = float(checkpoint['best_acc1'])
 
         # Set default frames_per_segment if not already set
-        if 'frames_per_segment' not in metadata:
-            metadata['frames_per_segment'] = 'unknown'
+        if 'frames_per_segment' not in metadata or metadata['frames_per_segment'] == 'unknown':
+            # Common TSN configurations use 1 or 5 frames per segment
+            # Since we can't detect this from the checkpoint structure,
+            # use a reasonable default based on num_segments
+            if metadata.get('num_segments', 'unknown') != 'unknown':
+                # Common practice: fewer segments -> more frames per segment
+                num_seg = metadata['num_segments']
+                if num_seg <= 3:
+                    metadata['frames_per_segment'] = 5  # 3x5 = 15 frames
+                elif num_seg <= 5:
+                    metadata['frames_per_segment'] = 5  # 5x5 = 25 frames
+                else:
+                    metadata['frames_per_segment'] = 1  # More segments, 1 frame each
+            else:
+                # If we can't determine num_segments, use the most common config
+                metadata['frames_per_segment'] = 5  # Most TSN models use 5
 
     @staticmethod
     def validate_model(checkpoint_path: str) -> Tuple[bool, str]:
