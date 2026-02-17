@@ -108,16 +108,20 @@ video_action_detection/
 │   └── hmdb51/                   # HMDB51 数据集
 │       └── HMDB51/               # 帧图像目录
 ├── outputs/                      # 输出目录
-│   ├── checkpoints/               # 模型检查点
-│   ├── models/                    # 模型管理目录
-│   │   ├── ucf101/               # UCF101 模型
-│   │   ├── hmdb51/               # HMDB51 模型
-│   │   └── custom/               # 自定义模型
+│   ├── checkpoints/               # 训练检查点（训练过程中的保存点）
 │   ├── results/                  # 检测结果
 │   │   └── frames/               # 保存的帧图像
 │   ├── logs/                     # 训练日志 (TensorBoard)
 │   └── videos/                   # 输出视频
-├── models/                       # 预训练模型目录 (YOLO等)
+├── models/                       # 统一的模型存储目录
+│   ├── torch_cache/             # PyTorch缓存
+│   │   ├── hub/                 # PyTorch Hub缓存（自动生成）
+│   │   └── checkpoints/         # 预训练权重（自动生成）
+│   ├── yolo_models/             # YOLO检测模型
+│   └── trained_models/          # 训练好的动作识别模型
+│       ├── ucf101/              # UCF101数据集训练的模型
+│       ├── hmdb51/              # HMDB51数据集训练的模型
+│       └── custom/              # 自定义模型
 ├── icon/                        # 图标资源
 │   └── camara.svg
 ├── requirements.txt              # Python 依赖
@@ -318,7 +322,7 @@ python scripts/realtime_detection.py \
 python scripts/download_yolo_models.py
 ```
 
-下载以下模型到 `models/` 目录：
+下载以下模型到 `models/yolo_models/` 目录：
 - yolov5s.pt
 - yolov8n.pt
 - yolov8s.pt
@@ -369,13 +373,24 @@ data/hmdb51/
 ## 使用指南
 
 **模型目录结构：**
-```
-outputs/models/
-├── ucf101/
-│   └── ucf101_best.pth (默认模型)
-└── custom/
-    └── your_model.pth (自定义模型)
-```
+
+1. **训练模型** (`models/trained_models/`): 训练完成的TSN模型
+   ```
+   models/trained_models/
+   ├── ucf101/
+   │   └── ucf101_best.pth (默认UCF101模型)
+   ├── hmdb51/
+   │   └── hmdb51_best.pth (默认HMDB51模型)
+   └── custom/
+       └── your_model.pth (自定义模型)
+   ```
+
+2. **训练检查点** (`outputs/checkpoints/`): 训练过程中的保存点
+   ```
+   outputs/checkpoints/
+   ├── ucf101_best.pth
+   └── hmdb51_best.pth
+   ```
 
 ---
 

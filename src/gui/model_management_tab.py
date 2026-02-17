@@ -15,6 +15,7 @@ from pathlib import Path
 
 from detection.model_metadata import ModelMetadata
 from .training_curves_widget import TrainingCurvesWidget
+from core.config import TRAINED_MODELS_DIR
 from .tensorboard_reader import check_tensorboard_available, get_training_curves, validate_log_directory
 
 
@@ -44,7 +45,7 @@ class ModelManagementTab(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.models_dir = Path("outputs/models")
+        self.models_dir = Path(TRAINED_MODELS_DIR)
         self.current_models = {}
         self.current_model_metadata = None
         self.init_ui()

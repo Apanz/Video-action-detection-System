@@ -20,6 +20,7 @@ from utils import TrainingLogger
 
 
 # 设置PyTorch缓存目录
+# PyTorch hub会在TORCH_CACHE_DIR下自动创建hub/和checkpoints/子目录
 torch.hub.set_dir(TrainConfig.TORCH_CACHE_DIR)
 
 

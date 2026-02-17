@@ -1,6 +1,5 @@
 """
-Configuration file for TSN-based Video Action Recognition
-Simple and clear configuration for undergraduate thesis
+配置文件
 """
 
 import os
@@ -15,7 +14,10 @@ OUTPUTS_DIR = ROOT_DIR / "outputs"
 CHECKPOINTS_DIR = OUTPUTS_DIR / "checkpoints"
 LOGS_DIR = OUTPUTS_DIR / "logs"
 VIDEOS_DIR = OUTPUTS_DIR / "videos"
-MODELS_DIR = ROOT_DIR / "models"  # YOLO模型目录
+MODELS_DIR = ROOT_DIR / "models"  # 统一的模型存储目录
+TORCH_CACHE_DIR = MODELS_DIR / "torch_cache"  # PyTorch缓存子目录
+YOLO_MODELS_DIR = MODELS_DIR / "yolo_models"  # YOLO检测模型子目录
+TRAINED_MODELS_DIR = MODELS_DIR / "trained_models"  # 训练模型子目录
 
 
 # =============================================================================
@@ -29,18 +31,16 @@ class DataConfig:
     HMDB51_SPLITS = str(DATA_DIR / "hmdb51" / "splits")  # 需要时创建
 
     # 数据集参数
-    NUM_SEGMENTS = 5           # Number of temporal segments for TSN (increased for UCF101)
-    FRAMES_PER_SEGMENT = 5      # Frames per segment (total = 5 * 5 = 25 frames)
-    INPUT_SIZE = 224            # Input image size (224x224)
-    NUM_WORKERS = 4             # Number of data loading workers
+    NUM_SEGMENTS = 5           # TSN的时间分段数量（为UCF101数据集增加）
+    FRAMES_PER_SEGMENT = 5      # 每个分段的帧数（总计 = 5 * 5 = 25帧）
+    INPUT_SIZE = 224            # 输入图像尺寸（224x224）
+    NUM_WORKERS = 4             # 数据加载工作线程数
 
     # UCF101特定参数
     UCF101_NUM_CLASSES = 101
-    UCF101_NUM_FRAMES = 25      # UCF101每个视频的目标帧数
 
     # HMDB51特定参数
     HMDB51_NUM_CLASSES = 51
-    HMDB51_NUM_FRAMES = 16      # HMDB51每个视频的目标帧数
 
 
 # =============================================================================
@@ -51,7 +51,7 @@ class ModelConfig:
     MODEL_TYPE = "TSN"          # 时序片段网络
 
     # 骨干网络选项: 'resnet18', 'resnet34', 'resnet50', 'mobilenet_v2'
-    BACKBONE = "resnet50"      # 更改为ResNet50以获得最佳准确率
+    BACKBONE = "resnet34"
     PRETRAINED = True           # 使用ImageNet预训练权重
     DROPOUT = 0.5               # Dropout比率
 
@@ -68,7 +68,7 @@ class ModelConfig:
 # 训练配置
 # =============================================================================
 class TrainConfig:
-    # 训练参数（为云GPU优化，追求最佳准确率）
+    # 训练参数
     BATCH_SIZE = 32             # 批量大小（内存不足时减小）
     NUM_EPOCHS = 120           # 增加训练轮次以获得更好的收敛
     LEARNING_RATE = 0.001       # 初始学习率
@@ -89,8 +89,8 @@ class TrainConfig:
     SCHEDULER_TYPE = 'cosine'    # 'step' 或 'cosine'
     STEP_SIZE = 15              # 每N个轮次衰减学习率（用于步进调度器）
     GAMMA = 0.1                 # 学习率衰减因子（用于步进调度器）
-    T_MAX = 120                # 余弦退火的最大轮次（增加到120）
-    ETA_MIN = 1e-5              # 余弦退火的最小学习率（已增加）
+    T_MAX = 120                # 余弦退火的最大轮次
+    ETA_MIN = 1e-5              # 余弦退火的最小学习率
 
     # 数据增强
     AGGRESSIVE_AUG = True       # 使用激进增强以提高正则化效果
@@ -108,7 +108,7 @@ class TrainConfig:
     DEVICE = "cuda" if __import__('torch').cuda.is_available() else "cpu"
 
     # PyTorch缓存目录（用于下载预训练模型）
-    TORCH_CACHE_DIR = "E:/torch_models"  # 更改为您首选的位置
+    TORCH_CACHE_DIR = str(TORCH_CACHE_DIR)  # 使用models/torch_cache目录
 
 
 # =============================================================================
@@ -120,13 +120,17 @@ class DetectionConfig:
     DETECTION_CONFIDENCE = 0.5
     DEVICE = "auto"
 
-    # YOLO模型路径
-    YOLO_MODELS_DIR = str(MODELS_DIR)
+    # YOLO模型路径（引用模块级别的YOLO_MODELS_DIR Path对象）
+    YOLO_MODELS_DIR = str(YOLO_MODELS_DIR)
+
+    # 训练模型目录
+    TRAINED_MODELS_DIR = str(TRAINED_MODELS_DIR)
+
     DEFAULT_YOLO_MODELS = {
-        "yolov5s": str(MODELS_DIR / "yolov5s.pt"),
-        "yolov8n": str(MODELS_DIR / "yolov8n.pt"),
-        "yolov8s": str(MODELS_DIR / "yolov8s.pt"),
-        "yolov8m": str(MODELS_DIR / "yolov8m.pt")
+        "yolov5s": str(MODELS_DIR / "yolo_models" / "yolov5s.pt"),
+        "yolov8n": str(MODELS_DIR / "yolo_models" / "yolov8n.pt"),
+        "yolov8s": str(MODELS_DIR / "yolo_models" / "yolov8s.pt"),
+        "yolov8m": str(MODELS_DIR / "yolo_models" / "yolov8m.pt")
     }
 
     # 时序处理（已更新以匹配数据集配置）

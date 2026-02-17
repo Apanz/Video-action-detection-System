@@ -93,3 +93,15 @@ nul
 .claude
 CLAUDE.md
 .docs
+
+# YOLO models (too large for git)
+models/yolo_models/*.pt
+!models/yolo_models/.gitkeep
+
+# PyTorch cache (auto-generated)
+models/torch_cache/
+
+# 训练模型 (too large for git)
+models/trained_models/*.pth
+!models/trained_models/.gitkeep
+!models/trained_models/*/.gitkeep

@@ -11,7 +11,7 @@ from pathlib import Path
 ROOT_DIR = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT_DIR / "src"))
 
-from core.config import MODELS_DIR
+from core.config import YOLO_MODELS_DIR
 
 
 def download_yolo_models():
@@ -20,7 +20,7 @@ def download_yolo_models():
     from ultralytics import YOLO
 
     # 确保模型目录存在
-    MODELS_DIR.mkdir(parents=True, exist_ok=True)
+    YOLO_MODELS_DIR.mkdir(parents=True, exist_ok=True)
 
     # 要下载的模型
     models = [
@@ -30,11 +30,11 @@ def download_yolo_models():
         "yolov8m.pt"
     ]
 
-    print(f"Models will be downloaded to: {MODELS_DIR}")
+    print(f"Models will be downloaded to: {YOLO_MODELS_DIR}")
     print("=" * 60)
 
     for model_name in models:
-        model_path = MODELS_DIR / model_name
+        model_path = YOLO_MODELS_DIR / model_name
 
         # 如果已存在则跳过
         if model_path.exists():
@@ -56,9 +56,9 @@ def download_yolo_models():
 
     print("" + "=" * 60)
     print("Download process completed!")
-    print(f"Models are saved in: {MODELS_DIR}")
+    print(f"Models are saved in: {YOLO_MODELS_DIR}")
     print("Available models:")
-    for model in MODELS_DIR.glob("*.pt"):
+    for model in YOLO_MODELS_DIR.glob("*.pt"):
         size_mb = model.stat().st_size / (1024 * 1024)
         print(f"  - {model.name} ({size_mb:.1f} MB)")
 
