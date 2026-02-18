@@ -11,6 +11,8 @@ from collections import deque
 import torch
 from .video_writer import FrameOverlay
 
+from core.config import DetectionConfig
+
 
 class PredictionSmoother:
     """使用指数移动平均跨帧平滑预测"""
@@ -61,7 +63,7 @@ class DetectionPipeline:
         (255, 0, 255),  # 品红色
     ]
 
-    def __init__(self, checkpoint_path: str, yolo_model: str = 'yolov5s.pt',
+    def __init__(self, checkpoint_path: str, yolo_model=None,
                  output_path: str = None, fps: float = 30.0,
                  show_display: bool = True, save_video: bool = False,
                  max_persons: int = 5,
@@ -72,7 +74,7 @@ class DetectionPipeline:
 
         Args:
             checkpoint_path: 训练好的TSN模型检查点路径
-            yolo_model: YOLO模型路径
+            yolo_model: YOLO模型路径 (default: from DetectionConfig)
             output_path: 输出视频路径（None表示不输出）
             fps: 目标FPS
             show_display: 显示实时显示
@@ -81,6 +83,10 @@ class DetectionPipeline:
             enable_result_collection: 启用检测结果收集
             results_dir: 保存结果的目录
         """
+        # Use config defaults if not specified
+        if yolo_model is None:
+            yolo_model = DetectionConfig.YOLO_MODEL
+
         self.show_display = show_display
         self.save_video = save_video or (output_path is not None)
         self.max_persons = max_persons
@@ -88,8 +94,8 @@ class DetectionPipeline:
         # 存储帧分辨率
         self.frame_resolution = None
 
-        # 显示预测的置信度阈值（设置为0以显示所有预测）
-        self.confidence_threshold = 0.0
+        # 显示预测的置信度阈值（使用DetectionConfig）
+        self.confidence_threshold = DetectionConfig.DETECTION_CONFIDENCE
 
         # 结果收集
         self.enable_result_collection = enable_result_collection
@@ -113,12 +119,9 @@ class DetectionPipeline:
             device='auto'
         )
 
-        # 时序处理器（更新为5片段 x 5帧 = 共25帧）
+        # 时序处理器（使用DetectionConfig默认值）
         from .temporal_processor import TemporalProcessor
         self.temporal_processor = TemporalProcessor(
-            num_segments=5,
-            frames_per_segment=5,
-            buffer_size=30,
             max_memory_mb=500.0  # 多人跟踪的内存限制
         )
 

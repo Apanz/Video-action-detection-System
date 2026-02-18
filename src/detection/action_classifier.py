@@ -9,6 +9,8 @@ import torch.nn as nn
 import numpy as np
 from typing import List, Dict, Optional, Tuple
 
+from core.config import DetectionConfig, ModelConfig
+
 
 class ActionClassifier:
     """
@@ -16,18 +18,25 @@ class ActionClassifier:
     """
 
     def __init__(self, checkpoint_path: str, device: str = 'auto',
-                 num_segments: int = 3, frames_per_segment: int = 5,
-                 backbone: str = 'resnet18'):
+                 num_segments=None, frames_per_segment=None,
+                 backbone=None):
         """
         初始化动作分类器
 
         Args:
             checkpoint_path: 训练好的模型检查点路径
             device: 'cpu'、'cuda' 或 'auto'
-            num_segments: 时序片段数量
-            frames_per_segment: 每片段帧数
-            backbone: 骨干网络架构
+            num_segments: 时序片段数量 (default: from DetectionConfig)
+            frames_per_segment: 每片段帧数 (default: from DetectionConfig)
+            backbone: 骨干网络架构 (default: from ModelConfig)
         """
+        # Use config defaults if not specified
+        if num_segments is None:
+            num_segments = DetectionConfig.NUM_SEGMENTS
+        if frames_per_segment is None:
+            frames_per_segment = DetectionConfig.FRAMES_PER_SEGMENT
+        if backbone is None:
+            backbone = ModelConfig.BACKBONE
         # 设置设备
         if device == 'auto':
             self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -259,7 +268,7 @@ class ActionClassifier:
 
         # Prediction smoothing
         self.prediction_history = []
-        self.smoothing_window = 5
+        self.smoothing_window = DetectionConfig.SMOOTHING_WINDOW
 
         # Model parameters
         self.num_segments = num_segments
@@ -449,21 +458,28 @@ class SimpleClassifier:
 
 
 def load_classifier(checkpoint_path: str, device: str = 'auto',
-                   num_segments: int = 3, frames_per_segment: int = 5,
-                   backbone: str = 'resnet18') -> ActionClassifier:
+                   num_segments=None, frames_per_segment=None,
+                   backbone=None) -> ActionClassifier:
     """
     从检查点加载动作分类器
 
     Args:
         checkpoint_path: 检查点路径
         device: 要使用的设备
-        num_segments: 时序片段数量
-        frames_per_segment: 每片段帧数
-        backbone: 骨干网络架构
+        num_segments: 时序片段数量 (default: from DetectionConfig)
+        frames_per_segment: 每片段帧数 (default: from DetectionConfig)
+        backbone: 骨干网络架构 (default: from ModelConfig)
 
     Returns:
         ActionClassifier 实例
     """
+    # Use config defaults if not specified
+    if num_segments is None:
+        num_segments = DetectionConfig.NUM_SEGMENTS
+    if frames_per_segment is None:
+        frames_per_segment = DetectionConfig.FRAMES_PER_SEGMENT
+    if backbone is None:
+        backbone = ModelConfig.BACKBONE
     if not os.path.exists(checkpoint_path):
         print(f"Checkpoint not found: {checkpoint_path}")
         return SimpleClassifier()

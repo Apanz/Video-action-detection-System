@@ -13,6 +13,7 @@ ROOT_DIR = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT_DIR / "src"))
 
 from detection import DetectionPipeline
+from core.config import DetectionConfig
 
 
 def main():
@@ -33,7 +34,7 @@ def main():
     # 模型参数
     parser.add_argument('--checkpoint', type=str, required=True,
                         help='Path to trained TSN model checkpoint')
-    parser.add_argument('--yolo_model', type=str, default='yolov5s',
+    parser.add_argument('--yolo_model', type=str, default=Path(DetectionConfig.YOLO_MODEL).stem,
                         choices=['yolov5s', 'yolov8n', 'yolov8s', 'yolov8m'],
                         help='YOLO model for person detection')
     parser.add_argument('--confidence', type=float, default=0.5,

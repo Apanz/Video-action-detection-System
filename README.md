@@ -217,7 +217,7 @@ python scripts/train.py \
 |------|------|--------|
 | `--dataset` | 数据集选择 (ucf101/hmdb51) | ucf101 |
 | `--split_id` | UCF101 划分 ID (1/2/3) | 1 |
-| `--backbone` | 骨干网络 (resnet18/resnet34/resnet50/mobilenet_v2) | resnet50 |
+| `--backbone` | 骨干网络 (resnet18/resnet34/resnet50/mobilenet_v2) | resnet34 |
 | `--num_segments` | 时序段数 | 5 |
 | `--frames_per_segment` | 每段帧数 | 5 |
 | `--epochs` | 训练轮数 | 120 |

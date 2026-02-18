@@ -11,6 +11,8 @@ import torch
 import sys
 import gc
 
+from core.config import DetectionConfig, DataConfig
+
 
 class TemporalProcessor:
     """
@@ -18,19 +20,29 @@ class TemporalProcessor:
     维护帧缓冲区并应用TSN采样策略
     """
 
-    def __init__(self, num_segments: int = 3, frames_per_segment: int = 5,
-                 buffer_size: int = 30, target_size: tuple = (224, 224),
+    def __init__(self, num_segments=None, frames_per_segment=None,
+                 buffer_size=None, target_size=None,
                  max_memory_mb: float = 500.0):
         """
         初始化时序处理器
 
         Args:
-            num_segments: TSN的时序片段数量
-            frames_per_segment: 每片段帧数
-            buffer_size: 缓冲区中存储的最大帧数
-            target_size: 目标调整大小 (H, W)
+            num_segments: TSN的时序片段数量 (default: from DetectionConfig)
+            frames_per_segment: 每片段帧数 (default: from DetectionConfig)
+            buffer_size: 缓冲区中存储的最大帧数 (default: from DetectionConfig)
+            target_size: 目标调整大小 (H, W) (default: from DataConfig)
             max_memory_mb: 触发清理前的最大内存使用量（MB）
         """
+        # Use config defaults if not specified
+        if num_segments is None:
+            num_segments = DetectionConfig.NUM_SEGMENTS
+        if frames_per_segment is None:
+            frames_per_segment = DetectionConfig.FRAMES_PER_SEGMENT
+        if buffer_size is None:
+            buffer_size = DetectionConfig.TEMPORAL_BUFFER_SIZE
+        if target_size is None:
+            target_size = (DataConfig.INPUT_SIZE, DataConfig.INPUT_SIZE)
+
         self.num_segments = num_segments
         self.frames_per_segment = frames_per_segment
         self.total_frames = num_segments * frames_per_segment
@@ -308,8 +320,9 @@ class TemporalProcessor:
                 if hasattr(frame, 'nbytes'):
                     total_bytes += frame.nbytes
                 else:
-                    # 回退估算
-                    h, w = frame.shape[:2] if len(frame.shape) >= 2 else (224, 224)
+                    # 回退估算（使用配置的输入尺寸）
+                    fallback_size = DataConfig.INPUT_SIZE
+                    h, w = frame.shape[:2] if len(frame.shape) >= 2 else (fallback_size, fallback_size)
                     c = frame.shape[2] if len(frame.shape) == 3 else 3
                     total_bytes += h * w * c * 4  # 假设最坏情况为float32
 

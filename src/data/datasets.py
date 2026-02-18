@@ -12,6 +12,8 @@ import torch
 from torch.utils.data import Dataset
 from torchvision import transforms
 
+from core.config import DataConfig
+
 
 class VideoDataset(Dataset):
     """
@@ -19,19 +21,25 @@ class VideoDataset(Dataset):
     Supports both video files (UCF101) and frame images (HMDB51)
     """
 
-    def __init__(self, video_paths, labels, num_segments=3,
-                 frames_per_segment=5, transform=None,
+    def __init__(self, video_paths, labels, num_segments=None,
+                 frames_per_segment=None, transform=None,
                  mode='train', target_frames=25):
         """
         Args:
             video_paths: List of video paths (either .avi files or frame directories)
             labels: List of corresponding labels
-            num_segments: Number of temporal segments for TSN
-            frames_per_segment: Number of frames to sample per segment
+            num_segments: Number of temporal segments for TSN (default: from DataConfig)
+            frames_per_segment: Number of frames to sample per segment (default: from DataConfig)
             transform: Image transformations
             mode: 'train' or 'test' - affects sampling strategy
             target_frames: Target number of frames in video
         """
+        # Use config defaults if not specified
+        if num_segments is None:
+            num_segments = DataConfig.NUM_SEGMENTS
+        if frames_per_segment is None:
+            frames_per_segment = DataConfig.FRAMES_PER_SEGMENT
+
         self.video_paths = video_paths
         self.labels = labels
         self.num_segments = num_segments
@@ -185,7 +193,7 @@ class VideoDataset(Dataset):
             # 默认转换
             default_transform = transforms.Compose([
                 transforms.ToPILImage() if isinstance(frames[0], np.ndarray) else lambda x: x,
-                transforms.Resize(224),
+                transforms.Resize(DataConfig.INPUT_SIZE),
                 transforms.ToTensor(),
                 transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                      std=[0.229, 0.224, 0.225])
@@ -212,17 +220,23 @@ class UCF101Dataset(Dataset):
     """
 
     def __init__(self, root_dir, split_dir, split_id=1, mode='train',
-                 num_segments=3, frames_per_segment=5, transform=None):
+                 num_segments=None, frames_per_segment=None, transform=None):
         """
         Args:
             root_dir: Directory containing UCF101 video files
             split_dir: Directory containing split files
             split_id: Which split to use (1, 2, or 3)
             mode: 'train' or 'test'
-            num_segments: Number of temporal segments
-            frames_per_segment: Frames per segment
+            num_segments: Number of temporal segments (default: from DataConfig)
+            frames_per_segment: Frames per segment (default: from DataConfig)
             transform: Image transformations
         """
+        # Use config defaults if not specified
+        if num_segments is None:
+            num_segments = DataConfig.NUM_SEGMENTS
+        if frames_per_segment is None:
+            frames_per_segment = DataConfig.FRAMES_PER_SEGMENT
+
         # 标准化路径以兼容Windows
         self.root_dir = os.path.normpath(root_dir)
         split_dir = os.path.normpath(split_dir)
@@ -358,7 +372,7 @@ class UCF101Dataset(Dataset):
             elif frames:
                 frames.append(frames[-1])
             else:
-                frames.append(Image.new('RGB', (224, 224)))
+                frames.append(Image.new('RGB', (DataConfig.INPUT_SIZE, DataConfig.INPUT_SIZE)))
 
         cap.release()
 
@@ -371,7 +385,7 @@ class UCF101Dataset(Dataset):
             transformed_frames = [self.transform(f) for f in frames]
         else:
             default_transform = transforms.Compose([
-                transforms.Resize(224),
+                transforms.Resize(DataConfig.INPUT_SIZE),
                 transforms.ToTensor(),
                 transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                      std=[0.229, 0.224, 0.225])
@@ -392,16 +406,22 @@ class HMDB51Dataset(Dataset):
     """
 
     def __init__(self, root_dir, split_dir=None, mode='train',
-                 num_segments=3, frames_per_segment=5, transform=None):
+                 num_segments=None, frames_per_segment=None, transform=None):
         """
         Args:
             root_dir: Directory containing HMDB51 frame images
             split_dir: Directory containing split files (optional)
             mode: 'train' or 'test'
-            num_segments: Number of temporal segments
-            frames_per_segment: Frames per segment
+            num_segments: Number of temporal segments (default: from DataConfig)
+            frames_per_segment: Frames per segment (default: from DataConfig)
             transform: Image transformations
         """
+        # Use config defaults if not specified
+        if num_segments is None:
+            num_segments = DataConfig.NUM_SEGMENTS
+        if frames_per_segment is None:
+            frames_per_segment = DataConfig.FRAMES_PER_SEGMENT
+
         self.root_dir = root_dir
         self.mode = mode
         self.num_segments = num_segments
@@ -505,7 +525,7 @@ class HMDB51Dataset(Dataset):
             transformed_frames = [self.transform(f) for f in frames]
         else:
             default_transform = transforms.Compose([
-                transforms.Resize(224),
+                transforms.Resize(DataConfig.INPUT_SIZE),
                 transforms.ToTensor(),
                 transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                      std=[0.229, 0.224, 0.225])

@@ -1,6 +1,6 @@
 """
-TSN (Temporal Segment Networks) Model for Video Action Recognition
-Uses pre-trained CNN backbone with temporal aggregation
+视频动作识别的TSN（时段网络）模型
+使用预训练的CNN骨干和时间聚合
 """
 
 import torch
@@ -8,24 +8,37 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torchvision import models
 
+from core.config import DataConfig, ModelConfig
+
 
 class TSN(nn.Module):
     """
-    Temporal Segment Networks (TSN) for action recognition
-    Samples frames from temporal segments and aggregates predictions
+    用于动作识别的时段网络（TSN），从时间段中抽样帧并汇总预测
     """
 
-    def __init__(self, num_classes, backbone='resnet18', pretrained=True,
-                 dropout=0.5, num_segments=3, frames_per_segment=5):
+    def __init__(self, num_classes, backbone=None, pretrained=None,
+                 dropout=None, num_segments=None, frames_per_segment=None):
         """
         Args:
             num_classes: Number of action classes
-            backbone: CNN backbone architecture ('resnet18', 'resnet34', 'resnet50', 'mobilenet_v2')
-            pretrained: Use ImageNet pretrained weights
-            dropout: Dropout rate before classifier
-            num_segments: Number of temporal segments (for TSN aggregation)
-            frames_per_segment: Frames per segment
+            backbone: CNN backbone architecture (default: from ModelConfig)
+            pretrained: Use ImageNet pretrained weights (default: from ModelConfig)
+            dropout: Dropout rate before classifier (default: from ModelConfig)
+            num_segments: Number of temporal segments (default: from DataConfig)
+            frames_per_segment: Frames per segment (default: from DataConfig)
         """
+        # Use config defaults if not specified
+        if backbone is None:
+            backbone = ModelConfig.BACKBONE
+        if pretrained is None:
+            pretrained = ModelConfig.PRETRAINED
+        if dropout is None:
+            dropout = ModelConfig.DROPOUT
+        if num_segments is None:
+            num_segments = DataConfig.NUM_SEGMENTS
+        if frames_per_segment is None:
+            frames_per_segment = DataConfig.FRAMES_PER_SEGMENT
+
         super(TSN, self).__init__()
 
         self.num_classes = num_classes
@@ -144,8 +157,20 @@ class TSNWithConsensus(nn.Module):
     Options: 'avg', 'max', 'sum'
     """
 
-    def __init__(self, num_classes, backbone='resnet18', pretrained=True,
-                 dropout=0.5, num_segments=3, frames_per_segment=5, consensus='avg'):
+    def __init__(self, num_classes, backbone=None, pretrained=None,
+                 dropout=None, num_segments=None, frames_per_segment=None, consensus='avg'):
+        # Use config defaults if not specified
+        if backbone is None:
+            backbone = ModelConfig.BACKBONE
+        if pretrained is None:
+            pretrained = ModelConfig.PRETRAINED
+        if dropout is None:
+            dropout = ModelConfig.DROPOUT
+        if num_segments is None:
+            num_segments = DataConfig.NUM_SEGMENTS
+        if frames_per_segment is None:
+            frames_per_segment = DataConfig.FRAMES_PER_SEGMENT
+
         super(TSNWithConsensus, self).__init__()
 
         self.num_classes = num_classes
@@ -223,22 +248,34 @@ class TSNWithConsensus(nn.Module):
         return predictions
 
 
-def create_model(dataset='ucf101', backbone='resnet18', pretrained=True, dropout=0.5,
-                num_segments=3, frames_per_segment=5):
+def create_model(dataset='ucf101', backbone=None, pretrained=None, dropout=None,
+                num_segments=None, frames_per_segment=None):
     """
     Create a TSN model for specific dataset
 
     Args:
         dataset: 'ucf101' or 'hmdb51'
-        backbone: CNN backbone
-        pretrained: Use pretrained weights
-        dropout: Dropout rate
-        num_segments: Number of temporal segments
-        frames_per_segment: Frames per segment
+        backbone: CNN backbone (default: from ModelConfig)
+        pretrained: Use pretrained weights (default: from ModelConfig)
+        dropout: Dropout rate (default: from ModelConfig)
+        num_segments: Number of temporal segments (default: from DataConfig)
+        frames_per_segment: Frames per segment (default: from DataConfig)
 
     Returns:
         TSN model
     """
+    # Use config defaults if not specified
+    if backbone is None:
+        backbone = ModelConfig.BACKBONE
+    if pretrained is None:
+        pretrained = ModelConfig.PRETRAINED
+    if dropout is None:
+        dropout = ModelConfig.DROPOUT
+    if num_segments is None:
+        num_segments = DataConfig.NUM_SEGMENTS
+    if frames_per_segment is None:
+        frames_per_segment = DataConfig.FRAMES_PER_SEGMENT
+
     if dataset.lower() == 'ucf101':
         num_classes = 101
     elif dataset.lower() == 'hmdb51':

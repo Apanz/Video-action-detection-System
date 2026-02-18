@@ -13,7 +13,7 @@ ROOT_DIR = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT_DIR / "src"))
 
 from training import Trainer
-from core.config import TrainConfig
+from core.config import TrainConfig, DataConfig, ModelConfig
 import torch
 from torch.utils.data import DataLoader
 from tqdm import tqdm
@@ -102,20 +102,20 @@ def main():
                         help='Split ID for UCF101 (1, 2, or 3)')
 
     # Model arguments
-    parser.add_argument('--backbone', type=str, default='resnet18',
+    parser.add_argument('--backbone', type=str, default=ModelConfig.BACKBONE,
                         choices=['resnet18', 'resnet34', 'resnet50', 'mobilenet_v2'],
                         help='CNN backbone architecture')
-    parser.add_argument('--num_segments', type=int, default=3,
+    parser.add_argument('--num_segments', type=int, default=DataConfig.NUM_SEGMENTS,
                         help='Number of temporal segments')
-    parser.add_argument('--frames_per_segment', type=int, default=5,
+    parser.add_argument('--frames_per_segment', type=int, default=DataConfig.FRAMES_PER_SEGMENT,
                         help='Frames per segment')
-    parser.add_argument('--dropout', type=float, default=0.5,
+    parser.add_argument('--dropout', type=float, default=ModelConfig.DROPOUT,
                         help='Dropout rate')
 
     # 评估参数
-    parser.add_argument('--batch_size', type=int, default=32,
+    parser.add_argument('--batch_size', type=int, default=TrainConfig.BATCH_SIZE,
                         help='Batch size')
-    parser.add_argument('--num_workers', type=int, default=4,
+    parser.add_argument('--num_workers', type=int, default=DataConfig.NUM_WORKERS,
                         help='Number of data loading workers')
 
     args = parser.parse_args()
