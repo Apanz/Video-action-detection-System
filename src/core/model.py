@@ -62,7 +62,7 @@ class TSN(nn.Module):
         else:
             raise ValueError(f"Unsupported backbone: {backbone}")
 
-        self.feature_dim = feature_dim
+        self.feature_dim = feature_dim      # 特征维度
 
         # 分类器头
         self.classifier = nn.Sequential(
@@ -106,8 +106,8 @@ class TSN(nn.Module):
         # 重塑回 (B, T, feature_dim)
         features = features.view(B, T, self.feature_dim)
 
-        # 关键：使用实际帧数(T)而不是固定的num_segments * frames_per_segment
-        # 这处理了 T < num_segments * frames_per_segment 的情况
+        # 使用实际帧数(T)而不是固定的num_segments * frames_per_segment
+        # 处理 T < num_segments * frames_per_segment 的情况
         # 基于实际帧数动态计算片段
         segment_features = []
         frames_per_segment = T // self.num_segments
@@ -291,5 +291,17 @@ def create_model(dataset='ucf101', backbone=None, pretrained=None, dropout=None,
         num_segments=num_segments,
         frames_per_segment=frames_per_segment
     )
+
+    """ 使用TSNWithConsensus方式训练模型
+    model = TSNWithConsensus(
+        num_classes=num_classes,
+        backbone=backbone,
+        pretrained=pretrained,
+        dropout=dropout,
+        num_segments=num_segments,
+        frames_per_segment=frames_per_segment,
+        consensus='avg'
+    )
+    """
 
     return model

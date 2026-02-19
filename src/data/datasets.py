@@ -17,8 +17,7 @@ from core.config import DataConfig
 
 class VideoDataset(Dataset):
     """
-    Base class for video action recognition datasets
-    Supports both video files (UCF101) and frame images (HMDB51)
+    支持视频文件（UCF101）和帧图像（HMDB51）
     """
 
     def __init__(self, video_paths, labels, num_segments=None,
@@ -52,7 +51,7 @@ class VideoDataset(Dataset):
         self.num_frames = num_segments * frames_per_segment
 
     def _load_video_frames(self, video_path):
-        """从视频文件加载帧"""
+        """从视频文件（ucf101）加载帧"""
         cap = cv2.VideoCapture(video_path)
         frames = []
 
@@ -73,7 +72,7 @@ class VideoDataset(Dataset):
         # 加载帧
         for idx in frame_indices:
             cap.set(cv2.CAP_PROP_POS_FRAMES, idx)
-            ret, frame = cap.read()
+            ret, frame = cap.read()     # ret(是否成功提取): bool, frame: np.ndarray
             if ret:
                 # 将BGR转换为RGB
                 frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -95,7 +94,7 @@ class VideoDataset(Dataset):
         return frames
 
     def _load_frame_images(self, frame_dir):
-        """从预提取的帧图像加载"""
+        """从预提取的帧图像加载（HMDB51）"""
         frame_files = sorted([f for f in os.listdir(frame_dir) if f.endswith('.jpg')])
 
         # 采样帧索引
@@ -134,14 +133,14 @@ class VideoDataset(Dataset):
         num_available = len(frames)
 
         # 计算片段边界
-        segment_size = num_available // self.num_segments
+        segment_size = num_available // self.num_segments       # 每个片段的帧数
         if segment_size < 1:
             segment_size = 1
 
         sampled_indices = []
         for seg_idx in range(self.num_segments):
-            start_idx = seg_idx * segment_size
-            end_idx = min(start_idx + segment_size, num_available)
+            start_idx = seg_idx * segment_size      # 片段的起始帧
+            end_idx = min(start_idx + segment_size, num_available)      # 片段的结束帧
 
             if self.mode == 'train':
                 # 片段内的随机位置
@@ -183,7 +182,7 @@ class VideoDataset(Dataset):
         if self.transform:
             transformed_frames = []
             for frame in frames:
-                # 需要时转换为PIL图像
+                # 需要时转换为PIL图像(torchvision.transforms 仅接受 PIL Image 或 Tensor)
                 if isinstance(frame, np.ndarray):
                     frame = Image.fromarray(frame)
                 transformed = self.transform(frame)
@@ -292,9 +291,7 @@ class UCF101Dataset(Dataset):
     def _sample_frames_tsn(self, total_frames: int, num_frames: int):
         """
         使用正确的TSN时序片段策略采样帧。
-
         TSN将视频分成num_segments个片段，然后从每个片段中采样frames_per_segment帧。
-这是时序片段网络的核心原理。
 
         Args:
             total_frames: 视频中的总帧数

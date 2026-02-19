@@ -1,8 +1,8 @@
 """
-Enhanced Training Logger Module for TensorBoard Logging
+TensorBoard 日志增强训练记录器模块
+提供可靠的日志记录功能，确保日志刷新，支持全面的指标追踪，
+以及日志文件完整性检查。
 
-Provides robust logging with guaranteed flush, comprehensive metrics tracking,
-and log file integrity checking.
 """
 
 import os
