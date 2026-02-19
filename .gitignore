@@ -92,7 +92,7 @@ nul
 # 忽略当前目录下的 .claude 文件或目录
 .claude
 CLAUDE.md
-.docs
+docs/
 
 # YOLO models (too large for git)
 models/yolo_models/*.pt
