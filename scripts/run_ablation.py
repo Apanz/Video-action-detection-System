@@ -42,7 +42,7 @@ BASE_ARGS = [
     "--label_smoothing", "0.1",
     "--grad_clip", "1.0",
     "--aggressive_aug", "true",
-    "--num_workers", "4",
+    "--num_workers", "0",  # Windows compatibility
     "--save_freq", "5",
     "--patience", "20"
 ]
@@ -268,8 +268,11 @@ def build_command(exp_config: dict, test_mode: bool = False) -> list:
 
     # Update epochs for test mode
     if test_mode:
-        cmd = [arg if arg != "--epochs" and arg != "100" else arg for arg in cmd]
-        cmd[cmd.index("--epochs") + 1] = "5"
+        # Find and replace the epochs value
+        for i, arg in enumerate(cmd):
+            if arg == "--epochs" and i + 1 < len(cmd):
+                cmd[i + 1] = "5"
+                break
 
     # Add experiment-specific arguments
     cmd.extend([
@@ -316,7 +319,7 @@ def parse_training_output(output: str) -> tuple:
     return best_acc, best_epoch
 
 
-def run_experiment(exp_config: dict, csv_path: Path, test_mode: bool = False) -> dict:
+def run_experiment(exp_config: dict, csv_path: Path, test_mode: bool = False, verbose: bool = False) -> dict:
     """Run a single experiment and update CSV record."""
     exp_id = exp_config["id"]
     name = exp_config["name"]
@@ -349,16 +352,29 @@ def run_experiment(exp_config: dict, csv_path: Path, test_mode: bool = False) ->
     error_msg = ""
 
     try:
-        result = subprocess.run(
-            cmd,
-            cwd=Path(__file__).parent.parent,
-            capture_output=True,
-            text=True,
-            encoding='utf-8',
-            errors='replace'
-        )
-        output = result.stdout + result.stderr
-        returncode = result.returncode
+        if verbose:
+            # Stream output to console
+            result = subprocess.run(
+                cmd,
+                cwd=Path(__file__).parent.parent,
+                text=True,
+                encoding='utf-8',
+                errors='replace'
+            )
+            output = ""  # Output was streamed directly to console
+            returncode = result.returncode
+        else:
+            # Capture output
+            result = subprocess.run(
+                cmd,
+                cwd=Path(__file__).parent.parent,
+                capture_output=True,
+                text=True,
+                encoding='utf-8',
+                errors='replace'
+            )
+            output = result.stdout + result.stderr
+            returncode = result.returncode
 
     except Exception as e:
         error_msg = str(e)
@@ -393,6 +409,16 @@ def run_experiment(exp_config: dict, csv_path: Path, test_mode: bool = False) ->
             record["error_msg"] = error_msg or f"returncode={returncode}"
         print(f"\n[FAILED] Experiment {exp_id} failed!")
         print(f"[ERROR] {record['error_msg']}")
+
+        # Show last 50 lines of output on failure (if not verbose)
+        if not verbose and output:
+            lines = output.strip().split('\n')
+            if len(lines) > 0:
+                print(f"\n[LAST 50 LINES OF OUTPUT]")
+                print("-" * 80)
+                for line in lines[-50:]:
+                    print(line)
+                print("-" * 80)
 
     update_csv_record(csv_path, record)
 
@@ -467,6 +493,11 @@ def main():
         default=None,
         help='Custom CSV path (default: outputs/ablation_results.csv)'
     )
+    parser.add_argument(
+        '--verbose',
+        action='store_true',
+        help='Show full training output during experiments'
+    )
 
     args = parser.parse_args()
 
@@ -500,7 +531,7 @@ def main():
     # Run experiments
     for i, exp_config in enumerate(experiments_to_run, 1):
         print(f"\n[PROGRESS] Experiment {i}/{len(experiments_to_run)}")
-        run_experiment(exp_config, csv_path, test_mode=args.test)
+        run_experiment(exp_config, csv_path, test_mode=args.test, verbose=args.verbose)
 
     # Print summary
     print_summary(csv_path)

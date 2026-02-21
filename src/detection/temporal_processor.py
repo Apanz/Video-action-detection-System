@@ -137,7 +137,7 @@ class TemporalProcessor:
             track_id: 轨迹ID
 
         Returns:
-            TSN格式的帧列表，如果帧数不足则返回None
+            TSN格式的帧列表（num_segments * frames_per_segment），如果帧数不足则返回None
         """
         if track_id not in self.frame_buffers or len(self.frame_buffers[track_id]) < self.total_frames:
             return None
@@ -147,7 +147,8 @@ class TemporalProcessor:
 
         # 应用TSN采样策略
         # 对于测试/验证模式：在片段内均匀采样
-        segment_frames = []
+        # 返回所有采样帧（不平均），以匹配训练时间格式
+        all_sampled_frames = []
 
         for seg_idx in range(self.num_segments):
             start_idx = int(seg_idx * len(frames) / self.num_segments)
@@ -158,23 +159,17 @@ class TemporalProcessor:
             if self.frames_per_segment == 1:
                 # 单帧：使用片段的中心帧
                 frame_idx = (start_idx + end_idx) // 2
-                selected_frame = frames[frame_idx]
+                all_sampled_frames.append(frames[frame_idx])
             else:
                 # 多帧：均匀分布
-                segment_frames_list = []
                 for i in range(segment_frame_count):
                     # 计算片段内的位置
                     pos = start_idx + (end_idx - start_idx) * i / (segment_frame_count - 1)
                     frame_idx = int(pos)
                     frame_idx = min(frame_idx, end_idx - 1)
-                    segment_frames_list.append(frames[frame_idx])
+                    all_sampled_frames.append(frames[frame_idx])
 
-                # 如果需要，对片段帧进行平均
-                selected_frame = self._average_frames(segment_frames_list)
-
-            segment_frames.append(selected_frame)
-
-        return segment_frames
+        return all_sampled_frames
 
     def _average_frames(self, frames: List[np.ndarray]) -> np.ndarray:
         """

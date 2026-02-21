@@ -9,6 +9,13 @@ import torch.nn.functional as F
 from torchvision import models
 
 from core.config import DataConfig, ModelConfig
+# 输入验证工具（通过环境变量 VALIDATION_ENABLED=true 启用）
+try:
+    from utils.validation import validate_video_shape, VALIDATION_ENABLED
+    VALIDATION_AVAILABLE = True
+except ImportError:
+    VALIDATION_AVAILABLE = False
+    VALIDATION_ENABLED = False
 
 
 class TSN(nn.Module):
@@ -93,8 +100,15 @@ class TSN(nn.Module):
 
         Returns:
             predictions: Logits of shape (B, num_classes)
+
+        Raises:
+            ValueError: If input frame count doesn't match configured dimensions
         """
         B, T, C, H, W = x.shape
+
+        # Validate input dimensions
+        # Use torch.jit.unused decorator to prevent TracerWarning during export/tracing
+        self._validate_input_dimensions(T)
 
         # 重塑以单独处理每一帧
         # (B, T, C, H, W) -> (B*T, C, H, W)
@@ -106,29 +120,16 @@ class TSN(nn.Module):
         # 重塑回 (B, T, feature_dim)
         features = features.view(B, T, self.feature_dim)
 
-        # 使用实际帧数(T)而不是固定的num_segments * frames_per_segment
-        # 处理 T < num_segments * frames_per_segment 的情况
-        # 基于实际帧数动态计算片段
+        # 使用配置的frames_per_segment进行TSN时间分段聚合
         segment_features = []
-        frames_per_segment = T // self.num_segments
+        frames_per_segment = self.frames_per_segment  # 使用配置值
 
         for seg_idx in range(self.num_segments):
             start_idx = seg_idx * frames_per_segment
-            # 对于最后一个片段，包含所有剩余帧
-            if seg_idx == self.num_segments - 1:
-                end_idx = T
-            else:
-                end_idx = start_idx + frames_per_segment
+            end_idx = start_idx + frames_per_segment
 
-            segment_feat = features[:, start_idx:end_idx, :]  # (B, 片段中的实际帧数, feature_dim)
-
-            # 片段内平均池化（仅当非空时）
-            if segment_feat.size(1) > 0:
-                segment_feat = segment_feat.mean(dim=1)  # (B, feature_dim)
-            else:
-                # 如果片段为空，使用零向量
-                segment_feat = torch.zeros(B, self.feature_dim, device=x.device)
-
+            # Extract features for this segment and apply average pooling
+            segment_feat = features[:, start_idx:end_idx, :].mean(dim=1)  # (B, feature_dim)
             segment_features.append(segment_feat)
 
         # 堆叠片段特征: (B, num_segments, feature_dim)
@@ -141,6 +142,22 @@ class TSN(nn.Module):
         predictions = self.classifier(consensus_features)  # (B, num_classes)
 
         return predictions
+
+    @torch.jit.unused
+    def _validate_input_dimensions(self, T: int):
+        """
+        Validate input frame count (ignored during tracing to avoid TracerWarning)
+
+        This method is decorated with @torch.jit.unused to prevent TracerWarning
+        during model export/tracing (ONNX, TensorRT, etc.).
+        """
+        # 使用 assert 而不是 if 来避免追踪警告
+        # 在追踪模式下，assert 会被优化掉
+        assert T == self.total_frames, (
+            f"Expected {self.total_frames} frames "
+            f"(num_segments={self.num_segments} * frames_per_segment={self.frames_per_segment}), "
+            f"got {T} frames."
+        )
 
     def get_features(self, x):
         """Extract features without classification"""

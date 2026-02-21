@@ -23,12 +23,43 @@ TRAINED_MODELS_DIR = MODELS_DIR / "trained_models"  # 训练模型子目录
 # =============================================================================
 # 数据配置
 # =============================================================================
+def _get_data_path(*path_parts, env_var=None):
+    """
+    获取数据路径，支持环境变量覆盖
+
+    Args:
+        *path_parts: 默认路径的各个部分（相对于DATA_DIR）
+        env_var: 环境变量名称（可选）
+
+    Returns:
+        路径字符串
+    """
+    # 如果指定了环境变量且该变量已设置，使用环境变量的值
+    if env_var and os.getenv(env_var):
+        return os.getenv(env_var)
+
+    # 否则使用默认路径
+    return str(DATA_DIR.joinpath(*path_parts))
+
+
 class DataConfig:
-    # 根目录
-    UCF101_ROOT = str(DATA_DIR / "ucf101" / "UCF101" / "UCF-101")
-    UCF101_SPLITS = str(DATA_DIR / "ucf101" / "UCF101TrainTestSplits-RecognitionTask" / "ucfTrainTestlist")
-    HMDB51_ROOT = str(DATA_DIR / "hmdb51" / "HMDB51")
-    HMDB51_SPLITS = str(DATA_DIR / "hmdb51" / "splits")  # 需要时创建
+    # 根目录（支持环境变量覆盖）
+    UCF101_ROOT = _get_data_path(
+        "ucf101", "UCF101", "UCF-101",
+        env_var="UCF101_ROOT"
+    )
+    UCF101_SPLITS = _get_data_path(
+        "ucf101", "UCF101TrainTestSplits-RecognitionTask", "ucfTrainTestlist",
+        env_var="UCF101_SPLITS"
+    )
+    HMDB51_ROOT = _get_data_path(
+        "hmdb51", "HMDB51",
+        env_var="HMDB51_ROOT"
+    )
+    HMDB51_SPLITS = _get_data_path(
+        "hmdb51", "splits",
+        env_var="HMDB51_SPLITS"
+    )
 
     # 数据集参数
     NUM_SEGMENTS = 5  # TSN的时间分段数量（为UCF101数据集增加）

@@ -14,6 +14,7 @@ sys.path.insert(0, str(ROOT_DIR / "src"))
 
 from training import Trainer
 from core.config import TrainConfig, DataConfig, ModelConfig
+from utils.metrics import compute_metrics, format_metrics_report, find_best_and_worst_classes
 import torch
 from torch.utils.data import DataLoader
 from tqdm import tqdm
@@ -21,7 +22,7 @@ from tqdm import tqdm
 
 def evaluate_model(trainer):
     """
-    在测试集上评估模型
+    在测试集上评估模型（使用增强的指标）
 
     Args:
         trainer: 包含已加载模型的训练器实例
@@ -32,12 +33,8 @@ def evaluate_model(trainer):
     trainer.model.eval()
 
     total_loss = 0.0
-    correct = 0
-    total = 0
-
-    # 每类别准确率跟踪
-    class_correct = {}
-    class_total = {}
+    all_predictions = []
+    all_labels = []
 
     with torch.no_grad():
         for batch in tqdm(trainer.val_loader, desc="Evaluating"):
@@ -48,43 +45,35 @@ def evaluate_model(trainer):
             outputs = trainer.model(videos)
             loss = trainer.criterion(outputs, labels)
 
-            # 统计
             total_loss += loss.item()
-            _, predicted = outputs.max(1)
-            total += labels.size(0)
-            correct += predicted.eq(labels).sum().item()
 
-            # 每类别跟踪
-            for i in range(labels.size(0)):
-                label = labels[i].item()
-                pred = predicted[i].item()
+            # 收集预测和标签用于指标计算
+            all_predictions.append(outputs.cpu())
+            all_labels.append(labels.cpu())
 
-                if label not in class_total:
-                    class_total[label] = 0
-                    class_correct[label] = 0
+    # 拼接所有批次
+    all_predictions = torch.cat(all_predictions, dim=0)
+    all_labels = torch.cat(all_labels, dim=0)
 
-                class_total[label] += 1
-                if pred == label:
-                    class_correct[label] += 1
-
-    # 计算总体指标
+    # 计算平均损失
     avg_loss = total_loss / len(trainer.val_loader)
-    avg_acc = 100. * correct / total
 
-    # 计算每类别准确率
-    per_class_acc = {}
-    for class_id in class_total:
-        per_class_acc[class_id] = 100. * class_correct[class_id] / class_total[class_id]
+    # 获取类别数
+    num_classes = all_predictions.size(1)
 
-    results = {
-        'loss': avg_loss,
-        'accuracy': avg_acc,
-        'correct': correct,
-        'total': total,
-        'per_class_accuracy': per_class_acc
-    }
+    # 使用增强的指标模块计算所有指标
+    metrics = compute_metrics(
+        all_predictions,
+        all_labels,
+        num_classes=num_classes,
+        top_k=[1, 5]
+    )
 
-    return results
+    # 添加损失到指标
+    metrics['loss'] = avg_loss
+    metrics['total_samples'] = all_labels.size(0)
+
+    return metrics
 
 
 def main():
@@ -183,22 +172,28 @@ def main():
         print("\nEvaluating model...")
         results = evaluate_model(trainer)
 
-        # 打印结果
-        print("\n" + "="*60)
-        print("Evaluation Results")
-        print("="*60)
-        print(f"Test Loss: {results['loss']:.4f}")
-        print(f"Test Accuracy: {results['accuracy']:.2f}%")
-        print(f"Correct: {results['correct']}/{results['total']}")
-        print("="*60)
+        # 获取类别名称（如果可用）
+        class_names = None
+        if hasattr(trainer.train_dataset, 'class_names'):
+            class_names = trainer.train_dataset.class_names
 
-        # 打印每类别准确率
-        print("\nPer-Class Accuracy:")
-        print("-"*60)
-        for class_id in sorted(results['per_class_accuracy'].keys()):
-            acc = results['per_class_accuracy'][class_id]
-            print(f"Class {class_id}: {acc:.2f}%")
-        print("-"*60)
+        # 打印增强的结果报告
+        print(format_metrics_report(results, class_names))
+
+        # 打印最好和最差的类别
+        if 'per_class_metrics' in results:
+            best_classes, worst_classes = find_best_and_worst_classes(results, class_names, top_n=5)
+
+            print("\n[Top 5 Best Performing Classes]")
+            print("-" * 80)
+            for class_name, f1_score in best_classes:
+                print(f"  {class_name}: F1 = {f1_score:.2f}%")
+
+            print("\n[Top 5 Worst Performing Classes]")
+            print("-" * 80)
+            for class_name, f1_score in worst_classes:
+                print(f"  {class_name}: F1 = {f1_score:.2f}%")
+            print()
 
     except Exception as e:
         print(f"Error during evaluation: {e}")

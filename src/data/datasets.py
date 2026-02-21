@@ -128,39 +128,55 @@ class VideoDataset(Dataset):
     def _sample_frames_tsn(self, frames):
         """
         TSN风格的时序片段采样
-        将视频分成片段并从每个片段中采样帧
+        将视频分成num_segments个片段，从每个片段中采样frames_per_segment帧
         """
         num_available = len(frames)
 
-        # 计算片段边界
-        segment_size = num_available // self.num_segments       # 每个片段的帧数
-        if segment_size < 1:
-            segment_size = 1
+        # 计算片段大小
+        segment_size = num_available // self.num_segments
 
         sampled_indices = []
         for seg_idx in range(self.num_segments):
-            start_idx = seg_idx * segment_size      # 片段的起始帧
-            end_idx = min(start_idx + segment_size, num_available)      # 片段的结束帧
+            start_idx = seg_idx * segment_size
+            end_idx = start_idx + segment_size
+
+            # 对于最后一个片段，包含所有剩余帧
+            if seg_idx == self.num_segments - 1:
+                end_idx = num_available
+
+            # 在此片段内采样frames_per_segment帧
+            seg_frame_count = self.frames_per_segment
+            seg_frame_count = min(seg_frame_count, end_idx - start_idx)
 
             if self.mode == 'train':
-                # 片段内的随机位置
-                frame_idx = random.randint(start_idx, max(start_idx, end_idx - 1))
+                # 带时序抖动的随机采样（训练模式）
+                if end_idx - start_idx > seg_frame_count:
+                    seg_indices = random.sample(
+                        range(start_idx, end_idx),
+                        seg_frame_count
+                    )
+                else:
+                    # 片段中没有足够的帧，使用所有帧并重复
+                    seg_indices = list(range(start_idx, end_idx))
+                    while len(seg_indices) < seg_frame_count:
+                        seg_indices.append(seg_indices[-1])
             else:
-                # 片段的中心
-                frame_idx = (start_idx + end_idx) // 2
+                # 片段内均匀采样（验证/测试模式）
+                if end_idx - start_idx <= seg_frame_count:
+                    # 使用片段中的所有帧
+                    seg_indices = list(range(start_idx, end_idx))
+                else:
+                    # 在片段内均匀采样
+                    seg_indices = [
+                        int(start_idx + (end_idx - start_idx) * i / seg_frame_count)
+                        for i in range(seg_frame_count)
+                    ]
 
-            sampled_indices.append(frame_idx)
+            sampled_indices.extend(seg_indices)
 
-        # 在每个片段中心周围采样frames_per_segment帧
-        result_frames = []
-        for idx in sampled_indices:
-            for _ in range(self.frames_per_segment):
-                # 为训练添加一些随机性
-                offset = random.randint(-2, 2) if self.mode == 'train' else 0
-                actual_idx = max(0, min(num_available - 1, idx + offset))
-                result_frames.append(frames[actual_idx])
-
-        return result_frames
+        # 按索引排序并返回帧
+        sampled_indices = sorted(sampled_indices)
+        return [frames[i] for i in sampled_indices]
 
     def __len__(self):
         return len(self.video_paths)
@@ -485,6 +501,63 @@ class HMDB51Dataset(Dataset):
     def __len__(self):
         return len(self.video_paths)
 
+    def _sample_frames_tsn(self, total_frames: int, num_frames: int):
+        """
+        使用正确的TSN时序片段策略采样帧。
+        TSN将视频分成num_segments个片段，然后从每个片段中采样frames_per_segment帧。
+
+        Args:
+            total_frames: 视频中的总帧数
+            num_frames: 要采样的总帧数（num_segments * frames_per_segment）
+
+        Returns:
+            按升序排列的帧索引列表
+        """
+        frame_indices = []
+
+        # 计算片段大小
+        segment_size = total_frames // self.num_segments
+
+        for seg_idx in range(self.num_segments):
+            start_idx = seg_idx * segment_size
+            end_idx = start_idx + segment_size
+
+            # 对于最后一个片段，包含所有剩余帧
+            if seg_idx == self.num_segments - 1:
+                end_idx = total_frames
+
+            # 在此片段内采样帧
+            seg_frame_count = self.frames_per_segment
+            seg_frame_count = min(seg_frame_count, end_idx - start_idx)
+
+            if self.mode == 'train':
+                # 带时序抖动的随机采样（如TSN论文中所述）
+                if end_idx - start_idx > seg_frame_count:
+                    seg_indices = random.sample(
+                        range(start_idx, end_idx),
+                        seg_frame_count
+                    )
+                else:
+                    # 此片段中没有足够的帧，使用所有帧并重复
+                    seg_indices = list(range(start_idx, end_idx))
+                    while len(seg_indices) < seg_frame_count:
+                        seg_indices.append(seg_indices[-1])
+            else:
+                # 片段内均匀采样（测试/验证模式）
+                if end_idx - start_idx <= seg_frame_count:
+                    # 使用片段中的所有帧
+                    seg_indices = list(range(start_idx, end_idx))
+                else:
+                    # 在片段内均匀采样
+                    seg_indices = [
+                        int(start_idx + (end_idx - start_idx) * i / seg_frame_count)
+                        for i in range(seg_frame_count)
+                    ]
+
+            frame_indices.extend(seg_indices)
+
+        return sorted(frame_indices)
+
     def __getitem__(self, idx):
         video_dir = self.video_paths[idx]
         label = self.labels[idx]
@@ -494,22 +567,15 @@ class HMDB51Dataset(Dataset):
                               if f.endswith('.jpg') or f.endswith('.png')])
 
         num_frames = self.num_segments * self.frames_per_segment
+        total_frames = len(frame_files)
 
-        # 采样帧索引（TSN风格）
-        if self.mode == 'train':
-            # 随机采样
-            frame_indices = sorted(random.sample(range(len(frame_files)),
-                                                 min(num_frames, len(frame_files))))
-        else:
-            # 均匀采样
-            frame_indices = np.linspace(0, len(frame_files) - 1,
-                                        min(num_frames, len(frame_files)),
-                                        dtype=int).tolist()
+        # 使用TSN时序片段策略采样帧索引
+        frame_indices = self._sample_frames_tsn(total_frames, num_frames)
 
         # 加载帧
         frames = []
-        for idx in frame_indices:
-            frame_path = os.path.join(video_dir, frame_files[idx])
+        for frame_idx in frame_indices:
+            frame_path = os.path.join(video_dir, frame_files[frame_idx])
             frame = Image.open(frame_path).convert('RGB')
             frames.append(frame)
 

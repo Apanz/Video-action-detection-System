@@ -45,6 +45,18 @@ class ActionClassifier:
 
         print(f"Loading action classifier on {self.device}...")
 
+        # 首先从检查点提取元数据以获取正确的时序参数
+        from .model_metadata import ModelMetadata
+        metadata = ModelMetadata.extract_metadata(checkpoint_path)
+
+        # 使用元数据中的时序参数（如果可用）
+        if metadata.get('num_segments', 'unknown') != 'unknown':
+            num_segments = int(metadata['num_segments'])
+            print(f"[ActionClassifier] Using num_segments={num_segments} from checkpoint metadata")
+        if metadata.get('frames_per_segment', 'unknown') != 'unknown':
+            frames_per_segment = int(metadata['frames_per_segment'])
+            print(f"[ActionClassifier] Using frames_per_segment={frames_per_segment} from checkpoint metadata")
+
         # 加载检查点
         checkpoint = torch.load(checkpoint_path, map_location=self.device)
 
@@ -191,9 +203,13 @@ class ActionClassifier:
         if has_inf:
             print("[ERROR classifier] Model contains Inf weights! Checkpoint may be corrupted.")
 
+        # 关键：先将模型移动到正确的设备
+        self.model.to(self.device)
+
         # 使用虚拟输入测试前向传播
         print("[DEBUG classifier] Testing forward pass with dummy input...")
-        dummy_input = torch.randn(1, 3, 3, 224, 224)
+        total_frames = num_segments * frames_per_segment
+        dummy_input = torch.randn(1, total_frames, 3, 224, 224)
         dummy_input = dummy_input.to(self.device)
         with torch.no_grad():
             dummy_output = self.model(dummy_input)
@@ -237,13 +253,13 @@ class ActionClassifier:
         # 注意：具有BatchNorm的训练模型通常具有均值≈0的权重，这是正常的
         # 此检查过于严格，导致了误报。删除以避免混淆。
         # 真正的验证是：(1) load_result显示所有键匹配，(2) 前向传播产生有效输出
-        if first_conv_weight is not None and abs(first_conv_weight.mean()) < 0.001:
-            # 仅当均值极度接近0时警告（这可能表示零初始化）
-            print("[WARNING] First layer weights have very small mean. Verify checkpoint is trained.")
+        # 检查标准差以确保权重不是全零初始化
+        if first_conv_weight is not None and first_conv_weight.std() < 0.01:
+            # 标准差极小表示可能未训练（零初始化或接近零）
+            print("[WARNING] First layer weights have very small std. Verify checkpoint is trained.")
 
         # 设置为评估模式
         self.model.eval()
-        self.model.to(self.device)
 
         # UCF101类别名称
         self.ucf101_classes = [
@@ -416,6 +432,10 @@ class SimpleClassifier:
         """Initialize simple classifier"""
         self.action_names = ["Unknown"]
         self.is_dummy = True
+        # Add temporal attributes for compatibility
+        self.num_segments = DetectionConfig.NUM_SEGMENTS
+        self.frames_per_segment = DetectionConfig.FRAMES_PER_SEGMENT
+        self.total_frames = self.num_segments * self.frames_per_segment
         # UCF101类别名称以保持兼容性
         self.ucf101_classes = [
             'ApplyEyeMakeup', 'ApplyLipstick', 'Archery', 'BabyCrawling', 'BalanceBeam',

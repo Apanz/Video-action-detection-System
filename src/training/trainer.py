@@ -17,6 +17,7 @@ from core.config import DataConfig, ModelConfig, TrainConfig, ROOT_DIR
 from data import UCF101Dataset, HMDB51Dataset, get_train_transform, get_test_transform, MixupAugmentation, CutMixAugmentation
 from core import create_model
 from utils import TrainingLogger
+from training.loss import SoftCrossEntropyLoss
 
 
 # 设置PyTorch缓存目录
@@ -87,11 +88,12 @@ class Trainer:
         print(f"Train samples: {len(self.train_dataset)}")
         print(f"Val samples: {len(self.val_dataset)}")
 
-        # 支持标签平滑的损失函数
+        # 支持标签平滑的损失函数（支持软标签用于Mixup/CutMix）
         label_smoothing = getattr(args, 'label_smoothing', 0.0)
-        self.criterion = nn.CrossEntropyLoss(label_smoothing=label_smoothing)
+        self.criterion = SoftCrossEntropyLoss(label_smoothing=label_smoothing)
         if label_smoothing > 0:
             print(f"Using label smoothing: {label_smoothing}")
+        print(f"Using SoftCrossEntropyLoss (supports Mixup/CutMix soft labels)")
 
         # 可配置权重衰减的优化器
         weight_decay = getattr(args, 'weight_decay', TrainConfig.WEIGHT_DECAY)
@@ -105,6 +107,16 @@ class Trainer:
 
         # 学习率调度器（同时支持步进和余弦）
         scheduler_type = getattr(args, 'scheduler', 'step')
+        # 保存调度器配置以备后用
+        self.scheduler_config = {
+            'type': scheduler_type,
+            't_max': getattr(args, 't_max', args.epochs),
+            'eta_min': getattr(args, 'eta_min', 1e-6),
+            'step_size': args.step_size,
+            'gamma': args.gamma,
+            'epochs': args.epochs
+        }
+
         if scheduler_type == 'cosine':
             t_max = getattr(args, 't_max', args.epochs)
             self.scheduler = optim.lr_scheduler.CosineAnnealingLR(
@@ -134,16 +146,16 @@ class Trainer:
 
         # Mixup/CutMix数据增强
         self.mixup_alpha = getattr(args, 'mixup_alpha', 0.0)
-        self.cutmix_alpha = getattr(args, 'cutmix_alpha', 0.0)
+        self.cutmix_beta = getattr(args, 'cutmix_beta', 0.0)
         self.aug_type = getattr(args, 'aug_type', 'mixup')
 
-        if self.mixup_alpha > 0 or self.cutmix_alpha > 0:
+        if self.mixup_alpha > 0 or self.cutmix_beta > 0:
             if self.aug_type == 'mixup':
                 self.augmenter = MixupAugmentation(alpha=self.mixup_alpha, num_classes=num_classes)
                 print(f"Using Mixup augmentation (alpha={self.mixup_alpha})")
             elif self.aug_type == 'cutmix':
-                self.augmenter = CutMixAugmentation(beta=self.cutmix_alpha, num_classes=num_classes)
-                print(f"Using CutMix augmentation (beta={self.cutmix_alpha})")
+                self.augmenter = CutMixAugmentation(beta=self.cutmix_beta, num_classes=num_classes)
+                print(f"Using CutMix augmentation (beta={self.cutmix_beta})")
             self.use_augmentation = True
         else:
             self.use_augmentation = False
@@ -249,6 +261,10 @@ class Trainer:
             self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
             print("Loaded scheduler state")
 
+        # 恢复调度器配置（如果可用）
+        if 'scheduler_config' in checkpoint and checkpoint['scheduler_config']:
+            self.scheduler_config = checkpoint['scheduler_config']
+
         # 如果可用则恢复训练状态
         self.current_epoch = checkpoint.get('epoch', 0)
         self.best_acc = checkpoint.get('best_acc', 0.0)
@@ -258,7 +274,7 @@ class Trainer:
         print()
 
     def unfreeze_backbone(self, new_lr=None):
-        """Unfreeze backbone and optionally adjust learning rate"""
+        """解冻骨干，并可选择调整学习率"""
         print(f"\n{'='*50}")
         print("Unfreezing backbone for full fine-tuning")
         print(f"{'='*50}")
@@ -271,6 +287,26 @@ class Trainer:
                 param_group['lr'] = new_lr
             print(f"Learning rate changed to {new_lr}")
 
+            # 重新创建调度器以使用新的基准学习率
+            cfg = self.scheduler_config
+            remaining_epochs = cfg['epochs'] - self.current_epoch
+
+            if cfg['type'] == 'cosine':
+                # 使用剩余的epoch数作为新的T_max
+                self.scheduler = optim.lr_scheduler.CosineAnnealingLR(
+                    self.optimizer,
+                    T_max=remaining_epochs,
+                    eta_min=cfg['eta_min']
+                )
+                print(f"Scheduler reset: CosineAnnealingLR(T_max={remaining_epochs}, eta_min={cfg['eta_min']})")
+            else:
+                self.scheduler = optim.lr_scheduler.StepLR(
+                    self.optimizer,
+                    step_size=cfg['step_size'],
+                    gamma=cfg['gamma']
+                )
+                print(f"Scheduler reset: StepLR(step_size={cfg['step_size']}, gamma={cfg['gamma']})")
+
         total_params = sum(p.numel() for p in self.model.parameters())
         trainable_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
         print(f"Total parameters: {total_params:,}")
@@ -278,8 +314,13 @@ class Trainer:
 
     def create_datasets(self):
         """创建训练和验证数据集"""
-        train_transform = get_train_transform()
+        # 获取aggressive_aug配置
+        aggressive_aug = getattr(self.args, 'aggressive_aug', TrainConfig.AGGRESSIVE_AUG)
+        train_transform = get_train_transform(aggressive=aggressive_aug)
         val_transform = get_test_transform()
+
+        if aggressive_aug:
+            print(f"Using aggressive data augmentation")
 
         if self.args.dataset.lower() == 'ucf101':
             train_dataset = UCF101Dataset(
@@ -399,7 +440,7 @@ class Trainer:
 
             # Log to tensorboard
             if batch_idx % 50 == 0:
-                global_step = self.current_epoch * len(self.train_loader) + batch_idx
+                global_step = self.current_epoch * len(self.train_loader) + batch_idx       # 累计批次
                 self.logger.log_batch_metrics(
                     loss=loss.item(),
                     acc=100. * correct / total,
@@ -447,6 +488,7 @@ class Trainer:
             'model_state_dict': self.model.state_dict(),
             'optimizer_state_dict': self.optimizer.state_dict(),
             'scheduler_state_dict': self.scheduler.state_dict(),
+            'scheduler_config': getattr(self, 'scheduler_config', None),
             'best_acc': self.best_acc,
             # 添加模型配置元数据
             'config': {

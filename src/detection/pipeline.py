@@ -87,6 +87,15 @@ class DetectionPipeline:
         if yolo_model is None:
             yolo_model = DetectionConfig.YOLO_MODEL
 
+        # Map model name to full path if needed
+        if yolo_model in DetectionConfig.DEFAULT_YOLO_MODELS:
+            yolo_model = DetectionConfig.DEFAULT_YOLO_MODELS[yolo_model]
+        elif not yolo_model.endswith('.pt'):
+            # If it's just a name without .pt, try to add it and look up
+            yolo_model_with_ext = yolo_model + '.pt'
+            if yolo_model_with_ext in DetectionConfig.DEFAULT_YOLO_MODELS:
+                yolo_model = DetectionConfig.DEFAULT_YOLO_MODELS[yolo_model_with_ext]
+
         self.show_display = show_display
         self.save_video = save_video or (output_path is not None)
         self.max_persons = max_persons
@@ -119,12 +128,6 @@ class DetectionPipeline:
             device='auto'
         )
 
-        # 时序处理器（使用DetectionConfig默认值）
-        from .temporal_processor import TemporalProcessor
-        self.temporal_processor = TemporalProcessor(
-            max_memory_mb=500.0  # 多人跟踪的内存限制
-        )
-
         # 多人支持：每个轨迹的预测平滑器
         self.prediction_smoothers: Dict[int, PredictionSmoother] = {}
 
@@ -141,6 +144,14 @@ class DetectionPipeline:
         self.classifier = load_classifier(
             checkpoint_path=checkpoint_path,
             device='auto'
+        )
+
+        # 时序处理器（使用分类器的时序参数以确保一致性）
+        from .temporal_processor import TemporalProcessor
+        self.temporal_processor = TemporalProcessor(
+            num_segments=self.classifier.num_segments,
+            frames_per_segment=self.classifier.frames_per_segment,
+            max_memory_mb=500.0  # 多人跟踪的内存限制
         )
 
         # 视频写入器
@@ -288,6 +299,23 @@ class DetectionPipeline:
         # 绘制叠加层
         info = self._get_info_dict(timestamp)
         frame = FrameOverlay.draw_info_panel(frame, info)
+
+        # 更新GUI显示用的当前动作和置信度
+        # 使用与_get_info_dict相同的逻辑：显示置信度最高的人员的动作
+        person_count = len(self.current_actions)
+        if person_count > 0:
+            # 查找置信度最高的人员
+            best_track_id = max(self.current_confidences.items(),
+                             key=lambda x: x[1])[0] if self.current_confidences else None
+            if best_track_id is not None:
+                self.current_action = self.current_actions.get(best_track_id, "Unknown")
+                self.current_confidence = self.current_confidences.get(best_track_id, 0.0)
+            else:
+                self.current_action = "Detecting..."
+                self.current_confidence = 0.0
+        else:
+            self.current_action = "No person detected"
+            self.current_confidence = 0.0
 
         # 绘制时间戳
         timestamp_str = time.strftime('%Y-%m-%d %H:%M:%S')

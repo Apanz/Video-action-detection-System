@@ -146,14 +146,16 @@ def main():
         print("\nLogging hyperparameters...")
         trainer.log_hyperparams(trainer._get_config_dict(args))
 
-        # 记录模型图（可选，如果引起问题可以注释掉）
-        try:
-            # 获取一个样本批次用于记录模型图
-            sample_batch = next(iter(trainer.train_loader))
-            sample_input = sample_batch['video'][:1].to(trainer.device)  # 单个样本
-            trainer.log_model_graph(sample_input)
-        except Exception as e:
-            print(f"Warning: Could not log model graph: {e}")
+        # 记录模型图（已禁用以避免TracerWarning）
+        # 注意：模型图记录会触发torch.jit.trace，可能导致追踪警告
+        # 如需启用，取消注释下面的代码
+        # try:
+        #     sample_batch = next(iter(trainer.train_loader))
+        #     sample_input = sample_batch['video'][:1].to(trainer.device)
+        #     trainer.log_model_graph(sample_input)
+        # except Exception as e:
+        #     print(f"Warning: Could not log model graph: {e}")
+        print("Skipping model graph logging to avoid TracerWarning")
 
         print("\n" + "="*60)
         print("Starting Training")
@@ -173,6 +175,9 @@ def main():
             # 验证
             val_loss, val_acc = trainer.validate()
 
+            # 更新学习率调度器
+            trainer.scheduler.step()
+
             # 使用增强的日志记录器记录轮次指标
             trainer.log_epoch_metrics(train_loss, train_acc, val_loss, val_acc, epoch)
 
@@ -181,18 +186,30 @@ def main():
                 trainer.log_gradients(epoch)
                 trainer.log_parameters(epoch)
 
+            current_lr = trainer.optimizer.param_groups[0]['lr']
             print(f"\nEpoch {epoch + 1}/{args.epochs}")
             print(f"Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.2f}%")
-            print(f"Val Loss: {val_loss:.4f}, Val Acc: {val_acc:.2f}%")
+            print(f"Val Loss: {val_loss:.4f}, Val Acc: {val_acc:.2f}%, LR: {current_lr:.6f}")
 
-            # 检查是否为最佳模型
+            # 检查是否为最佳模型或接近最佳（相对改进）
+            MIN_IMPROVEMENT = 0.1  # 0.1%的最小改进阈值
             is_best = val_acc > trainer.best_acc
+
             if is_best:
                 trainer.best_acc = val_acc
                 trainer.early_stopping_counter = 0
                 print(f"*** Best model saved with acc: {val_acc:.2f}% ***")
             else:
-                trainer.early_stopping_counter += 1
+                # 检查是否有显著改进（接近最佳准确率）
+                improvement = val_acc - trainer.best_acc
+                if improvement > -MIN_IMPROVEMENT:
+                    # 改进在阈值范围内，重置计数器
+                    trainer.early_stopping_counter = 0
+                    if improvement > 0:
+                        print(f"*** Significant improvement: {improvement:.2f}% ***")
+                else:
+                    # 没有显著改进，增加计数器
+                    trainer.early_stopping_counter += 1
 
             # 保存检查点
             if (epoch + 1) % args.save_freq == 0:

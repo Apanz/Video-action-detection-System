@@ -234,7 +234,7 @@ python scripts/train.py \
 | `--grad_clip` | 梯度裁剪阈值 (0.0禁用) | 1.0 |
 | `--aug_type` | 增强类型 (mixup/cutmix) | mixup |
 | `--aggressive_aug` | 使用激进图像增强 | True |
-| `--scheduler` | 学习率调度器 (step/cosine) | cosine（推荐）|
+| `--scheduler` | 学习率调度器 (step/cosine) | step |
 | `--t_max` | 余弦退火最大轮数 | 120 |
 | `--eta_min` | 余弦退火最小学习率 | 1e-5 |
 | `--patience` | 早停耐心值 | 20 |
