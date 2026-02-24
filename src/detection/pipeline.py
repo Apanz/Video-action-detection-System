@@ -68,7 +68,8 @@ class DetectionPipeline:
                  show_display: bool = True, save_video: bool = False,
                  max_persons: int = 5,
                  enable_result_collection: bool = False,
-                 results_dir: str = "outputs/results"):
+                 results_dir: str = "outputs/results",
+                 label_file=None):
         """
         初始化检测流水线
 
@@ -82,6 +83,7 @@ class DetectionPipeline:
             max_persons: 同时跟踪的最大人数
             enable_result_collection: 启用检测结果收集
             results_dir: 保存结果的目录
+            label_file: 可选的标签文件路径
         """
         # Use config defaults if not specified
         if yolo_model is None:
@@ -143,7 +145,8 @@ class DetectionPipeline:
         from .action_classifier import load_classifier
         self.classifier = load_classifier(
             checkpoint_path=checkpoint_path,
-            device='auto'
+            device='auto',
+            label_file=label_file
         )
 
         # 时序处理器（使用分类器的时序参数以确保一致性）
@@ -239,7 +242,7 @@ class DetectionPipeline:
 
                     # 从平滑概率中获取最佳预测
                     top_idx = np.argmax(smoothed_probs)
-                    action = self.classifier.ucf101_classes[top_idx]
+                    action = self.classifier.class_labels[top_idx]
                     confidence = float(smoothed_probs[top_idx])
 
                     # 应用置信度阈值

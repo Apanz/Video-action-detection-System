@@ -14,7 +14,7 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 
 from core.config import DataConfig, ModelConfig, TrainConfig, ROOT_DIR
-from data import UCF101Dataset, HMDB51Dataset, get_train_transform, get_test_transform, MixupAugmentation, CutMixAugmentation
+from data import UCF101Dataset, HMDB51Dataset, BehaviorsDataset, get_train_transform, get_test_transform, MixupAugmentation, CutMixAugmentation
 from core import create_model
 from utils import TrainingLogger
 from training.loss import SoftCrossEntropyLoss
@@ -50,16 +50,27 @@ class Trainer:
         print(f"TensorBoard logs: {self.log_dir}")
 
         # 获取类别数
-        num_classes = DataConfig.UCF101_NUM_CLASSES if args.dataset.lower() == 'ucf101' else DataConfig.HMDB51_NUM_CLASSES
+        if args.dataset.lower() == 'ucf101':
+            num_classes = DataConfig.UCF101_NUM_CLASSES
+            dataset_name = args.dataset
+        elif args.dataset.lower() == 'hmdb51':
+            num_classes = DataConfig.HMDB51_NUM_CLASSES
+            dataset_name = args.dataset
+        elif args.dataset.lower() == 'behaviors':
+            num_classes = getattr(args, 'num_classes', 7)  # Behaviors有7个类别
+            dataset_name = 'custom'  # 使用custom作为数据集名称
+        else:
+            raise ValueError(f"Unknown dataset: {args.dataset}")
 
         # 创建模型
         self.model = create_model(
-            dataset=args.dataset,
+            dataset=dataset_name,
             backbone=args.backbone,
             pretrained=args.pretrained,
             dropout=args.dropout,
             num_segments=args.num_segments,
-            frames_per_segment=args.frames_per_segment
+            frames_per_segment=args.frames_per_segment,
+            num_classes=num_classes  # 显式传递类别数
         ).to(self.device)
 
         # 计算参数数量
@@ -351,6 +362,39 @@ class Trainer:
             )
             val_dataset = HMDB51Dataset(
                 root_dir=DataConfig.HMDB51_ROOT,
+                mode='test',
+                num_segments=self.args.num_segments,
+                frames_per_segment=self.args.frames_per_segment,
+                transform=val_transform
+            )
+        elif self.args.dataset.lower() == 'behaviors':
+            # 获取数据目录和分割目录
+            data_dir = getattr(self.args, 'data_dir', None)
+            if data_dir is None:
+                data_dir = os.path.join(ROOT_DIR, 'data', 'Behaviors_Features')
+
+            split_dir = getattr(self.args, 'split_dir', None)
+            if split_dir is None:
+                # 如果没有提供split文件，自动创建（放在数据集目录内）
+                split_dir = os.path.join(data_dir, 'splits')
+                if not os.path.exists(split_dir) or not os.path.exists(os.path.join(split_dir, 'train.txt')):
+                    print(f"[Behaviors] Creating train/test splits in {split_dir}...")
+                    BehaviorsDataset.create_splits(data_dir, split_dir, train_ratio=0.8)
+
+            train_split = os.path.join(split_dir, 'train.txt')
+            test_split = os.path.join(split_dir, 'test.txt')
+
+            train_dataset = BehaviorsDataset(
+                root_dir=data_dir,
+                split_file=train_split,
+                mode='train',
+                num_segments=self.args.num_segments,
+                frames_per_segment=self.args.frames_per_segment,
+                transform=train_transform
+            )
+            val_dataset = BehaviorsDataset(
+                root_dir=data_dir,
+                split_file=test_split,
                 mode='test',
                 num_segments=self.args.num_segments,
                 frames_per_segment=self.args.frames_per_segment,

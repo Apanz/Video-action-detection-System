@@ -192,8 +192,9 @@ GUI 界面包含：
 
 ```bash
 # 基础训练（使用默认参数）
-python scripts/train.py --dataset ucf101 --backbone resnet34 --epochs 100
-
+python scripts/train.py --dataset ucf101 --backbone resnet34 --epochs 100 --batch_size 32 --scheduler cosine  --t_max 100
+python scripts/train.py --dataset ucf101 --backbone mobilenet_v2 --epochs 100 --batch_size 32 --scheduler cosine --t_max 100
+python scripts/train.py --dataset ucf101 --backbone resnet18 --epochs 100 --batch_size 32 --scheduler cosine --t_max 100
 
 # 完整训练命令（所有参数）
 python scripts/train.py \

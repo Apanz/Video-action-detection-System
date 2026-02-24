@@ -266,17 +266,18 @@ class TSNWithConsensus(nn.Module):
 
 
 def create_model(dataset='ucf101', backbone=None, pretrained=None, dropout=None,
-                num_segments=None, frames_per_segment=None):
+                num_segments=None, frames_per_segment=None, num_classes=None):
     """
     Create a TSN model for specific dataset
 
     Args:
-        dataset: 'ucf101' or 'hmdb51'
+        dataset: 'ucf101', 'hmdb51', or 'custom'
         backbone: CNN backbone (default: from ModelConfig)
         pretrained: Use pretrained weights (default: from ModelConfig)
         dropout: Dropout rate (default: from ModelConfig)
         num_segments: Number of temporal segments (default: from DataConfig)
         frames_per_segment: Frames per segment (default: from DataConfig)
+        num_classes: Number of output classes (overrides dataset default)
 
     Returns:
         TSN model
@@ -293,12 +294,20 @@ def create_model(dataset='ucf101', backbone=None, pretrained=None, dropout=None,
     if frames_per_segment is None:
         frames_per_segment = DataConfig.FRAMES_PER_SEGMENT
 
-    if dataset.lower() == 'ucf101':
-        num_classes = 101
-    elif dataset.lower() == 'hmdb51':
-        num_classes = 51
-    else:
-        raise ValueError(f"Unknown dataset: {dataset}")
+    # Determine num_classes from dataset if not explicitly provided
+    if num_classes is None:
+        if dataset.lower() == 'ucf101':
+            num_classes = 101
+        elif dataset.lower() == 'hmdb51':
+            num_classes = 51
+        elif dataset.lower() == 'custom':
+            raise ValueError("num_classes must be specified for custom dataset")
+        else:
+            # Try to parse as integer for direct num_classes specification
+            try:
+                num_classes = int(dataset)
+            except ValueError:
+                raise ValueError(f"Unknown dataset: {dataset}. Use 'ucf101', 'hmdb51', 'custom', or a number.")
 
     model = TSN(
         num_classes=num_classes,

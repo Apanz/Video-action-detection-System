@@ -207,32 +207,45 @@ class DetectionTab(QWidget):
         model_layout.addWidget(self.custom_checkpoint_button, 1, 0, 1, 2)
         self.custom_checkpoint_path = None
 
-        model_layout.addWidget(QLabel("YOLO模型："), 2, 0)
-        model_layout.itemAtPosition(2, 0).widget().setMinimumWidth(65)
+        # Label file selection button
+        self.label_file_button = QPushButton("选择标签文件...")
+        self.label_file_button.setEnabled(False)
+        self.label_file_button.setToolTip("为自定义模型指定类别标签文件（classInd.txt格式）")
+        self.label_file_button.clicked.connect(self.select_label_file)
+        self.label_file_button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        model_layout.addWidget(self.label_file_button, 2, 0, 1, 2)
+
+        self.label_file_path = None
+        self.label_file_label = QLabel("")  # 显示已选择的文件名
+        self.label_file_label.setStyleSheet("color: #666; font-size: 11px;")
+        model_layout.addWidget(self.label_file_label, 3, 0, 1, 2)
+
+        model_layout.addWidget(QLabel("YOLO模型："), 4, 0)
+        model_layout.itemAtPosition(4, 0).widget().setMinimumWidth(65)
 
         self.yolo_combo = QComboBox()
         self.yolo_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.yolo_combo.addItems(["yolov5s", "yolov8n", "yolov8s", "yolov8m"])
-        model_layout.addWidget(self.yolo_combo, 2, 1)
+        model_layout.addWidget(self.yolo_combo, 4, 1)
 
-        model_layout.addWidget(QLabel("置信度："), 3, 0)
-        model_layout.itemAtPosition(3, 0).widget().setMinimumWidth(65)
+        model_layout.addWidget(QLabel("置信度："), 5, 0)
+        model_layout.itemAtPosition(5, 0).widget().setMinimumWidth(65)
 
         self.confidence_spin = QDoubleSpinBox()
         self.confidence_spin.setRange(0.1, 1.0)
         self.confidence_spin.setSingleStep(0.1)
         self.confidence_spin.setValue(0.5)
         self.confidence_spin.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        model_layout.addWidget(self.confidence_spin, 3, 1)
+        model_layout.addWidget(self.confidence_spin, 5, 1)
 
-        model_layout.addWidget(QLabel("输出帧率："), 4, 0)
-        model_layout.itemAtPosition(4, 0).widget().setMinimumWidth(65)
+        model_layout.addWidget(QLabel("输出帧率："), 6, 0)
+        model_layout.itemAtPosition(6, 0).widget().setMinimumWidth(65)
 
         self.fps_spin = QDoubleSpinBox()
         self.fps_spin.setRange(1.0, 60.0)
         self.fps_spin.setValue(30.0)
         self.fps_spin.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        model_layout.addWidget(self.fps_spin, 4, 1)
+        model_layout.addWidget(self.fps_spin, 6, 1)
 
         model_group.setLayout(model_layout)
         layout.addWidget(model_group)
@@ -485,9 +498,14 @@ class DetectionTab(QWidget):
 
     def on_checkpoint_changed(self, index):
         """处理检查点选择更改"""
-        # 仅在选择"自定义模型"时启用自定义检查点按钮
+        # 仅在选择"自定义模型"时启用自定义检查点按钮和标签文件按钮
         is_custom = (self.checkpoint_combo.currentText() == "自定义模型")
         self.custom_checkpoint_button.setEnabled(is_custom)
+        self.label_file_button.setEnabled(is_custom)
+        if not is_custom:
+            # 清除标签文件选择
+            self.label_file_path = None
+            self.label_file_label.setText("")
 
     def on_mode_changed(self, index):
         """处理模式选择更改"""
@@ -506,6 +524,22 @@ class DetectionTab(QWidget):
             self.custom_checkpoint_path = file_path
             self.custom_checkpoint_button.setText(os.path.basename(file_path))
             self.log(f"已选择自定义检查点：{file_path}")
+
+    def select_label_file(self):
+        """选择标签文件"""
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "选择标签文件",
+            "",
+            "Text Files (*.txt);;All Files (*)"
+        )
+
+        if file_path:
+            self.label_file_path = file_path
+            # 显示文件名（不带路径）
+            file_name = os.path.basename(file_path)
+            self.label_file_label.setText(f"已选择: {file_name}")
+            self.log(f"已选择标签文件：{file_path}")
 
     def log(self, message):
         """向日志添加消息"""
@@ -572,6 +606,11 @@ class DetectionTab(QWidget):
             self.log("初始化检测管道...")
             self.log(f"使用检查点：{checkpoint}")
 
+            # 获取标签文件路径
+            label_file = None
+            if "自定义模型" in checkpoint_text and self.label_file_path:
+                label_file = self.label_file_path
+
             # 从配置获取YOLO模型路径
             yolo_model_key = self.yolo_combo.currentText()
             yolo_model_path = DetectionConfig.DEFAULT_YOLO_MODELS.get(
@@ -586,7 +625,8 @@ class DetectionTab(QWidget):
                 fps=self.fps_spin.value(),
                 show_display=False,  # We'll handle display ourselves
                 save_video=self.save_video_check.isChecked(),
-                enable_result_collection=self.record_results_check.isChecked()
+                enable_result_collection=self.record_results_check.isChecked(),
+                label_file=label_file
             )
 
             # 创建视频线程
@@ -651,7 +691,8 @@ class DetectionTab(QWidget):
         self.on_mode_changed(self.mode_combo.currentIndex())
         self.checkpoint_combo.setEnabled(True)
         self.yolo_combo.setEnabled(True)
-        self.custom_checkpoint_button.setEnabled(False)
+        # 检查点按钮状态由on_checkpoint_changed处理
+        self.on_checkpoint_changed(self.checkpoint_combo.currentIndex())
         self.progress_bar.setVisible(False)
         self.status_label.setText("就绪")
         self.video_label.setText("无视频")

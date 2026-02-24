@@ -22,11 +22,17 @@ def main():
 
     # 数据集参数
     parser.add_argument('--dataset', type=str, default='ucf101',
-                        choices=['ucf101', 'hmdb51'],
-                        help='Dataset to use (ucf101 or hmdb51)')
+                        choices=['ucf101', 'hmdb51', 'behaviors'],
+                        help='Dataset to use (ucf101, hmdb51, or behaviors)')
     parser.add_argument('--split_id', type=int, default=1,
                         choices=[1, 2, 3],
                         help='Split ID for UCF101 (1, 2, or 3)')
+    parser.add_argument('--data_dir', type=str, default=None,
+                        help='Data directory for custom datasets (e.g., behaviors)')
+    parser.add_argument('--split_dir', type=str, default=None,
+                        help='Split directory for custom datasets')
+    parser.add_argument('--num_classes', type=int, default=None,
+                        help='Number of classes (for custom datasets)')
 
     # 模型参数
     parser.add_argument('--backbone', type=str, default=ModelConfig.BACKBONE,

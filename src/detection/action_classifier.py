@@ -10,6 +10,7 @@ import numpy as np
 from typing import List, Dict, Optional, Tuple
 
 from core.config import DetectionConfig, ModelConfig
+from core.label_loader import load_labels, get_default_labels
 
 
 class ActionClassifier:
@@ -19,7 +20,7 @@ class ActionClassifier:
 
     def __init__(self, checkpoint_path: str, device: str = 'auto',
                  num_segments=None, frames_per_segment=None,
-                 backbone=None):
+                 backbone=None, label_file=None):
         """
         初始化动作分类器
 
@@ -29,6 +30,7 @@ class ActionClassifier:
             num_segments: 时序片段数量 (default: from DetectionConfig)
             frames_per_segment: 每片段帧数 (default: from DetectionConfig)
             backbone: 骨干网络架构 (default: from ModelConfig)
+            label_file: 可选的标签文件路径（classInd.txt格式）
         """
         # Use config defaults if not specified
         if num_segments is None:
@@ -63,7 +65,9 @@ class ActionClassifier:
         # 获取模型配置
         if 'model_state_dict' in checkpoint:
             # 从检查点提取信息
-            # 对于UCF101
+            state_dict = checkpoint['model_state_dict']
+
+            # 默认值
             num_classes = 101
             dataset_name = 'ucf101'
 
@@ -75,9 +79,24 @@ class ActionClassifier:
                 num_segments = config.get('num_segments', num_segments)
                 frames_per_segment = config.get('frames_per_segment', frames_per_segment)
             else:
-                # 关键：从检查点结构推断骨干网络
+                # 关键：从检查点结构推断模型配置
+                # 1. 从分类器权重推断类别数量
+                for key in state_dict.keys():
+                    if 'classifier.1.weight' in key or 'classifier.weight' in key:
+                        num_classes = state_dict[key].shape[0]
+                        print(f"[DEBUG classifier] Inferred num_classes={num_classes} from {key}")
+                        break
+
+                # 根据类别数量推断数据集名称
+                if num_classes == 101:
+                    dataset_name = 'ucf101'
+                elif num_classes == 51:
+                    dataset_name = 'hmdb51'
+                else:
+                    dataset_name = 'custom'  # 自定义数据集
+
+                # 2. 从检查点结构推断骨干网络
                 # 计算每层的块数
-                state_dict = checkpoint['model_state_dict']
                 blocks = {}
                 for key in state_dict.keys():
                     if 'backbone.layer' in key and '.conv1.weight' in key:
@@ -137,7 +156,8 @@ class ActionClassifier:
             backbone=backbone,
             pretrained=False,  # 我们正在加载训练好的权重
             num_segments=num_segments,
-            frames_per_segment=frames_per_segment
+            frames_per_segment=frames_per_segment,
+            num_classes=num_classes  # 显式传递类别数量
         )
 
         # 调试：打印检查点键
@@ -261,26 +281,8 @@ class ActionClassifier:
         # 设置为评估模式
         self.model.eval()
 
-        # UCF101类别名称
-        self.ucf101_classes = [
-            'ApplyEyeMakeup', 'ApplyLipstick', 'Archery', 'BabyCrawling', 'BalanceBeam',
-            'BandMarching', 'BaseballPitch', 'Basketball', 'BasketballDunk', 'BenchPress',
-            'Biking', 'Billiards', 'BlowDryHair', 'BlowingCandles', 'BoxingPunchingBag',
-            'BoxingSpeedBag', 'BreastStroke', 'BrushingTeeth', 'CleaningAndFlossingTeeth',
-            'CliffDiving', 'Diving', 'Drumming', 'Fencing', 'FrontCrawl',
-            'GolfSwing', 'Haircut', 'Hammering', 'HammerThrow', 'HeadMassage',
-            'HighJump', 'HorseRace', 'HorseRiding', 'HulaHoop', 'IceDancing',
-            'JavelinThrow', 'JugglingBalls', 'JumpingJack', 'JumpRope', 'Kayaking',
-            'Knitting', 'Lunges', 'MagicTrick', 'Mixing', 'MoppingFloor',
-            'Nunchucks', 'ParallelBars', 'PlayingCello', 'PlayingDaf', 'PlayingDhol',
-            'PlayingFlute', 'PlayingGuitar', 'PlayingPiano', 'PlayingSitar', 'PlayingTabla',
-            'PlayingViolin', 'PoleVault', 'PommelHorse', 'PullUps', 'Punch',
-            'PushUps', 'Rowing', 'SalsaSpin', 'ShavingBeard', 'Shotput',
-            'SkateBoarding', 'Skiing', 'SkiJet', 'Skydiving', 'SoccerJuggling',
-            'SoccerPenalty', 'StillRings', 'SumoWrestling', 'Surfing', 'Swing',
-            'TableTennisShot', 'TaiChi', 'TennisSwing', 'ThrowDiscus', 'TrampolineJumping',
-            'VolleyballSpiking', 'WalkingWithDog', 'WallPushups', 'WritingOnBoard', 'YoYo'
-        ]
+        # 加载标签
+        self.class_labels = load_labels(label_file=label_file, num_classes=num_classes)
 
         # Prediction smoothing
         self.prediction_history = []
@@ -355,7 +357,7 @@ class ActionClassifier:
             # 获取最佳预测
             top_idx = np.argmax(probs)
             confidence = float(probs[top_idx])
-            action_label = self.ucf101_classes[top_idx]
+            action_label = self.class_labels[top_idx]
 
             # DEBUG: 记录预测
             print(f"[DEBUG classifier] Predicted action: {action_label} (index: {top_idx})")
@@ -409,7 +411,7 @@ class ActionClassifier:
             if torch.isnan(outputs).any() or torch.isinf(outputs).any():
                 print("[WARNING classifier] Model outputs contain NaN or Inf values!")
                 # 返回均匀分布
-                num_classes = len(self.ucf101_classes)
+                num_classes = len(self.class_labels)
                 return np.ones(num_classes) / num_classes
 
             # Get probabilities
@@ -419,7 +421,7 @@ class ActionClassifier:
                 return probs
             except Exception as e:
                 print(f"[ERROR classifier] Softmax failed: {e}")
-                num_classes = len(self.ucf101_classes)
+                num_classes = len(self.class_labels)
                 return np.ones(num_classes) / num_classes
 
 
@@ -436,26 +438,8 @@ class SimpleClassifier:
         self.num_segments = DetectionConfig.NUM_SEGMENTS
         self.frames_per_segment = DetectionConfig.FRAMES_PER_SEGMENT
         self.total_frames = self.num_segments * self.frames_per_segment
-        # UCF101类别名称以保持兼容性
-        self.ucf101_classes = [
-            'ApplyEyeMakeup', 'ApplyLipstick', 'Archery', 'BabyCrawling', 'BalanceBeam',
-            'BandMarching', 'BaseballPitch', 'Basketball', 'BasketballDunk', 'BenchPress',
-            'Biking', 'Billiards', 'BlowDryHair', 'BlowingCandles', 'BoxingPunchingBag',
-            'BoxingSpeedBag', 'BreastStroke', 'BrushingTeeth', 'CleaningAndFlossingTeeth',
-            'CliffDiving', 'Diving', 'Drumming', 'Fencing', 'FrontCrawl',
-            'GolfSwing', 'Haircut', 'Hammering', 'HammerThrow', 'HeadMassage',
-            'HighJump', 'HorseRace', 'HorseRiding', 'HulaHoop', 'IceDancing',
-            'JavelinThrow', 'JugglingBalls', 'JumpingJack', 'JumpRope', 'Kayaking',
-            'Knitting', 'Lunges', 'MagicTrick', 'Mixing', 'MoppingFloor',
-            'Nunchucks', 'ParallelBars', 'PlayingCello', 'PlayingDaf', 'PlayingDhol',
-            'PlayingFlute', 'PlayingGuitar', 'PlayingPiano', 'PlayingSitar', 'PlayingTabla',
-            'PlayingViolin', 'PoleVault', 'PommelHorse', 'PullUps', 'Punch',
-            'PushUps', 'Rowing', 'SalsaSpin', 'ShavingBeard', 'Shotput',
-            'SkateBoarding', 'Skiing', 'SkiJet', 'Skydiving', 'SoccerJuggling',
-            'SoccerPenalty', 'StillRings', 'SumoWrestling', 'Surfing', 'Swing',
-            'TableTennisShot', 'TaiChi', 'TennisSwing', 'ThrowDiscus', 'TrampolineJumping',
-            'VolleyballSpiking', 'WalkingWithDog', 'WallPushups', 'WritingOnBoard', 'YoYo'
-        ]
+        # 使用默认UCF101标签以保持兼容性
+        self.class_labels = get_default_labels(101)
 
     def classify(self, frames: torch.Tensor) -> Tuple[str, float]:
         """虚拟分类 - 返回未知"""
@@ -472,14 +456,14 @@ class SimpleClassifier:
             Probability array of shape (num_classes,)
         """
         # 返回所有类别上的均匀分布
-        num_classes = len(self.ucf101_classes)
+        num_classes = len(self.class_labels)
         probs = np.ones(num_classes) / num_classes
         return probs
 
 
 def load_classifier(checkpoint_path: str, device: str = 'auto',
                    num_segments=None, frames_per_segment=None,
-                   backbone=None) -> ActionClassifier:
+                   backbone=None, label_file=None) -> ActionClassifier:
     """
     从检查点加载动作分类器
 
@@ -489,6 +473,7 @@ def load_classifier(checkpoint_path: str, device: str = 'auto',
         num_segments: 时序片段数量 (default: from DetectionConfig)
         frames_per_segment: 每片段帧数 (default: from DetectionConfig)
         backbone: 骨干网络架构 (default: from ModelConfig)
+        label_file: 可选的标签文件路径（classInd.txt格式）
 
     Returns:
         ActionClassifier 实例
@@ -510,7 +495,8 @@ def load_classifier(checkpoint_path: str, device: str = 'auto',
             device=device,
             num_segments=num_segments,
             frames_per_segment=frames_per_segment,
-            backbone=backbone
+            backbone=backbone,
+            label_file=label_file
         )
     except Exception as e:
         print(f"Error loading classifier: {e}")

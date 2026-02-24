@@ -799,3 +799,273 @@ class CutMixAugmentation:
             'rand_index': rand_index,
             'original_labels': labels
         }
+
+
+class BehaviorsDataset(Dataset):
+    """
+    Behaviors_Features 数据集
+    结构: class_name/ID/video_folder/*.png
+    例如: Looking_Forward/ID1/Forward1_id1_Act1_rgb/frame*.png
+    """
+
+    # 类别名称映射（标准化，去除空格和特殊字符）
+    CLASS_NAMES = [
+        'Looking_Forward',
+        'Raising_Hand',
+        'Reading',
+        'Sleeping',
+        'Standing',
+        'Turning_Around',
+        'Writting'
+    ]
+
+    def __init__(self, root_dir, split_file=None, mode='train',
+                 num_segments=None, frames_per_segment=None, transform=None):
+        """
+        Args:
+            root_dir: 数据集根目录，例如: data/Behaviors_Features
+            split_file: 训练/测试分割文件（可选）
+            mode: 'train' 或 'test'
+            num_segments: 时序片段数量 (default: from DataConfig)
+            frames_per_segment: 每片段帧数 (default: from DataConfig)
+            transform: 图像变换
+        """
+        # Use config defaults if not specified
+        if num_segments is None:
+            num_segments = DataConfig.NUM_SEGMENTS
+        if frames_per_segment is None:
+            frames_per_segment = DataConfig.FRAMES_PER_SEGMENT
+
+        self.root_dir = os.path.normpath(root_dir)
+        self.mode = mode
+        self.num_segments = num_segments
+        self.frames_per_segment = frames_per_segment
+        self.transform = transform
+        self.num_frames = num_segments * frames_per_segment
+
+        # 收集视频路径和标签
+        self.video_paths = []
+        self.labels = []
+
+        # 遍历每个类别目录
+        for class_idx, class_name in enumerate(self.CLASS_NAMES):
+            class_dir = os.path.join(self.root_dir, class_name)
+            if not os.path.exists(class_dir):
+                print(f"[WARNING] Class directory not found: {class_dir}")
+                continue
+
+            # 遍历该类别下的所有ID文件夹
+            for id_folder in os.listdir(class_dir):
+                id_path = os.path.join(class_dir, id_folder)
+                if not os.path.isdir(id_path):
+                    continue
+
+                # 遍历ID文件夹下的所有视频文件夹（以_rgb结尾）
+                for video_folder in os.listdir(id_path):
+                    if not video_folder.endswith('_rgb'):
+                        continue
+
+                    video_path = os.path.join(id_path, video_folder)
+
+                    # 检查文件夹是否包含PNG帧
+                    frame_files = [f for f in os.listdir(video_path) if f.endswith('.png')]
+                    if len(frame_files) == 0:
+                        continue
+
+                    # 过滤掉帧数太少的视频（至少需要 num_frames 帧）
+                    if len(frame_files) < self.num_frames:
+                        continue
+
+                    # 如果有split文件，检查是否在分割中
+                    if split_file and os.path.exists(split_file):
+                        # 需要创建相对路径标识
+                        relative_path = os.path.join(class_name, id_folder, video_folder)
+                        if self._is_in_split(split_file, relative_path, mode):
+                            self.video_paths.append(video_path)
+                            self.labels.append(class_idx)
+                    else:
+                        # 没有split文件，使用所有数据
+                        self.video_paths.append(video_path)
+                        self.labels.append(class_idx)
+
+        print(f"[BehaviorsDataset] Loaded {len(self.video_paths)} {mode} samples")
+        print(f"[BehaviorsDataset] Classes: {len(self.CLASS_NAMES)}")
+
+    def _is_in_split(self, split_file, relative_path, mode):
+        """检查视频是否在分割文件中"""
+        # 标准化路径分隔符（处理 Windows/Unix 混合路径）
+        normalized_path = relative_path.replace('\\', '/').replace('/', os.sep)
+
+        with open(split_file, 'r') as f:
+            for line in f:
+                line_path = line.strip().split()[0]  # 只取路径部分，忽略标签
+                # 标准化并比较
+                if line_path.replace('\\', '/').replace('/', os.sep) == normalized_path:
+                    return True
+        return False
+
+    def __len__(self):
+        return len(self.video_paths)
+
+    def _sample_frames_tsn(self, total_frames: int, num_frames: int):
+        """
+        TSN时序片段采样策略
+        将视频分成num_segments个片段，从每个片段中采样frames_per_segment帧
+
+        确保总是返回恰好 num_frames 个索引
+        """
+        frame_indices = []
+        segment_size = max(1, total_frames // self.num_segments)
+
+        for seg_idx in range(self.num_segments):
+            start_idx = seg_idx * segment_size
+            end_idx = min(start_idx + segment_size, total_frames)
+
+            # 确保至少有一些帧
+            if end_idx <= start_idx:
+                end_idx = min(start_idx + 1, total_frames)
+
+            # 在此片段内采样帧
+            seg_frame_count = self.frames_per_segment
+            available_frames = end_idx - start_idx
+
+            if self.mode == 'train':
+                # 训练时：带时序抖动的随机采样
+                if available_frames >= seg_frame_count:
+                    seg_indices = np.random.choice(
+                        range(start_idx, end_idx),
+                        size=seg_frame_count,
+                        replace=False
+                    )
+                else:
+                    # 帧数不足，采样所有帧并重复最后一帧
+                    seg_indices = list(range(start_idx, end_idx))
+                    while len(seg_indices) < seg_frame_count:
+                        seg_indices.append(seg_indices[-1] if seg_indices else start_idx)
+            else:
+                # 测试时：均匀采样
+                if available_frames >= seg_frame_count:
+                    seg_indices = np.linspace(
+                        start_idx, end_idx - 1,
+                        num=seg_frame_count, dtype=int
+                    ).tolist()
+                else:
+                    # 帧数不足，使用所有帧并重复
+                    seg_indices = list(range(start_idx, end_idx))
+                    while len(seg_indices) < seg_frame_count:
+                        seg_indices.append(seg_indices[-1] if seg_indices else start_idx)
+
+            frame_indices.extend(seg_indices)
+
+        # 确保返回恰好 num_frames 个索引
+        while len(frame_indices) < num_frames:
+            # 如果帧数仍然不足，重复最后一帧
+            frame_indices.append(frame_indices[-1] if frame_indices else 0)
+
+        return frame_indices[:num_frames]  # 截断到精确数量
+
+    def __getitem__(self, idx):
+        video_path = self.video_paths[idx]
+        label = self.labels[idx]
+
+        # 获取所有PNG帧文件并排序
+        frame_files = sorted([f for f in os.listdir(video_path) if f.endswith('.png')])
+        total_frames = len(frame_files)
+
+        # TSN时序采样
+        frame_indices = self._sample_frames_tsn(total_frames, self.num_frames)
+
+        # 加载帧
+        frames = []
+        for idx in frame_indices:
+            frame_path = os.path.join(video_path, frame_files[idx])
+            frame = Image.open(frame_path).convert('RGB')
+            frames.append(np.array(frame))
+
+        # 应用数据增强和变换
+        if self.transform:
+            # 如果有自定义变换，应用它
+            transformed_frames = []
+            for frame in frames:
+                if isinstance(frame, np.ndarray):
+                    frame = Image.fromarray(frame)
+                transformed = self.transform(frame)
+                transformed_frames.append(transformed)
+            frames = torch.stack(transformed_frames)
+        else:
+            # 默认变换
+            default_transform = transforms.Compose([
+                transforms.Lambda(lambda x: Image.fromarray(x) if isinstance(x, np.ndarray) else x),
+                transforms.Resize(DataConfig.INPUT_SIZE),
+                transforms.ToTensor(),
+                transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                     std=[0.229, 0.224, 0.225])
+            ])
+            transformed_frames = []
+            for frame in frames:
+                if isinstance(frame, np.ndarray):
+                    frame = Image.fromarray(frame)
+                transformed = default_transform(frame)
+                transformed_frames.append(transformed)
+            frames = torch.stack(transformed_frames)
+
+        return {
+            'video': frames,  # Shape: (T, C, H, W)
+            'label': torch.tensor(label, dtype=torch.long),
+            'video_path': video_path
+        }
+
+    @classmethod
+    def create_splits(cls, root_dir, split_dir, train_ratio=0.8):
+        """
+        创建训练/测试分割文件
+
+        Args:
+            root_dir: 数据集根目录
+            split_dir: 分割文件保存目录
+            train_ratio: 训练集比例
+        """
+        os.makedirs(split_dir, exist_ok=True)
+
+        train_videos = []
+        test_videos = []
+
+        # 遍历每个类别
+        for class_name in cls.CLASS_NAMES:
+            class_dir = os.path.join(root_dir, class_name)
+            if not os.path.exists(class_dir):
+                continue
+
+            # 收集该类别的所有视频
+            class_videos = []
+            for id_folder in os.listdir(class_dir):
+                id_path = os.path.join(class_dir, id_folder)
+                if not os.path.isdir(id_path):
+                    continue
+
+                for video_folder in os.listdir(id_path):
+                    if video_folder.endswith('_rgb'):
+                        # 使用正斜杠作为路径分隔符（跨平台兼容）
+                        relative_path = f"{class_name}/{id_folder}/{video_folder}"
+                        class_videos.append(relative_path)
+
+            # 随机分割
+            random.shuffle(class_videos)
+            split_idx = int(len(class_videos) * train_ratio)
+
+            train_videos.extend([(v, cls.CLASS_NAMES.index(class_name)) for v in class_videos[:split_idx]])
+            test_videos.extend([(v, cls.CLASS_NAMES.index(class_name)) for v in class_videos[split_idx:]])
+
+        # 写入分割文件
+        with open(os.path.join(split_dir, 'train.txt'), 'w') as f:
+            for video_path, label in train_videos:
+                f.write(f"{video_path} {label}\n")
+
+        with open(os.path.join(split_dir, 'test.txt'), 'w') as f:
+            for video_path, label in test_videos:
+                f.write(f"{video_path} {label}\n")
+
+        print(f"[BehaviorsDataset] Created splits:")
+        print(f"  Train: {len(train_videos)} videos")
+        print(f"  Test: {len(test_videos)} videos")
+        print(f"  Saved to: {split_dir}")
