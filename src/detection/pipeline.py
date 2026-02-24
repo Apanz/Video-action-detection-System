@@ -210,7 +210,6 @@ class DetectionPipeline:
 
         for idx, detection in enumerate(detections):
             # 基于检测索引分配轨迹ID（简化跟踪）
-            # 生产环境中应使用DeepSORT等适当的跟踪
             track_id = idx
 
             # 为新轨迹初始化预测平滑器
