@@ -20,6 +20,37 @@ YOLO_MODELS_DIR = MODELS_DIR / "yolo_models"  # YOLO检测模型子目录
 TRAINED_MODELS_DIR = MODELS_DIR / "trained_models"  # 训练模型子目录
 
 
+def get_default_model_path(dataset: str) -> str:
+    """
+    从配置文件获取指定数据集的默认模型路径
+
+    Args:
+        dataset: 数据集名称 ('ucf101' 或 'hmdb51')
+
+    Returns:
+        默认模型的完整路径，如果未设置则返回预设的默认路径
+    """
+    import json
+
+    # 读取配置文件
+    config_file = TRAINED_MODELS_DIR / dataset / '.default.json'
+
+    if config_file.exists():
+        try:
+            with open(config_file, 'r', encoding='utf-8') as f:
+                config = json.load(f)
+                default_model = config.get('default_model')
+                if default_model:
+                    return str(TRAINED_MODELS_DIR / dataset / default_model)
+        except Exception as e:
+            print(f"Warning: Failed to read default model config for {dataset}: {e}")
+
+    # 如果配置文件不存在或读取失败，返回预设的默认路径
+    # 保持向后兼容性
+    fallback_name = f"{dataset}_best.pth"
+    return str(TRAINED_MODELS_DIR / dataset / fallback_name)
+
+
 # =============================================================================
 # 数据配置
 # =============================================================================
@@ -90,9 +121,9 @@ class ModelConfig:
     UCF101_NUM_CLASSES = 101
     HMDB51_NUM_CLASSES = 51
 
-    # 检查点路径
-    DEFAULT_UCF101_CHECKPOINT = str(CHECKPOINTS_DIR / "ucf101_best.pth")
-    DEFAULT_HMDB51_CHECKPOINT = str(CHECKPOINTS_DIR / "hmdb51_best.pth")
+    # 检查点路径（注意：这些会在导入时计算，如需获取最新的默认模型，请使用 get_default_model_path() 函数）
+    DEFAULT_UCF101_CHECKPOINT = get_default_model_path('ucf101')
+    DEFAULT_HMDB51_CHECKPOINT = get_default_model_path('hmdb51')
 
 
 # =============================================================================
@@ -181,9 +212,9 @@ class DetectionConfig:
     SHOW_INFO_PANEL = True
     SHOW_TIMESTAMP = True
 
-    # 检查点路径
-    DEFAULT_UCF101_CHECKPOINT = str(CHECKPOINTS_DIR / "ucf101_best.pth")
-    DEFAULT_HMDB51_CHECKPOINT = str(CHECKPOINTS_DIR / "hmdb51_best.pth")
+    # 检查点路径（注意：这些会在导入时计算，如需获取最新的默认模型，请使用 get_default_model_path() 函数）
+    DEFAULT_UCF101_CHECKPOINT = get_default_model_path('ucf101')
+    DEFAULT_HMDB51_CHECKPOINT = get_default_model_path('hmdb51')
 
 
 # =============================================================================

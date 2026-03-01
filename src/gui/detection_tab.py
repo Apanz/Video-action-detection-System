@@ -574,9 +574,13 @@ class DetectionTab(QWidget):
                     return
                 checkpoint = self.custom_checkpoint_path
             elif "UCF101" in checkpoint_text:
-                checkpoint = DetectionConfig.DEFAULT_UCF101_CHECKPOINT
+                # 动态获取最新的默认模型路径
+                from core.config import get_default_model_path
+                checkpoint = get_default_model_path('ucf101')
             else:  # HMDB51
-                checkpoint = DetectionConfig.DEFAULT_HMDB51_CHECKPOINT
+                # 动态获取最新的默认模型路径
+                from core.config import get_default_model_path
+                checkpoint = get_default_model_path('hmdb51')
 
             # 验证检查点是否存在
             if not os.path.exists(checkpoint):

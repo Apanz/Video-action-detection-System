@@ -48,8 +48,49 @@ class ModelManagementTab(QWidget):
         self.models_dir = Path(TRAINED_MODELS_DIR)
         self.current_models = {}
         self.current_model_metadata = None
+        self.default_model_cache = {}  # 缓存默认模型配置 {category: filename}
+        self.load_default_models()
         self.init_ui()
         self.refresh_model_list()
+
+    def load_default_models(self):
+        """从配置文件加载默认模型设置"""
+        import json
+        for category in ['ucf101', 'custom']:
+            config_file = self.models_dir / category / '.default.json'
+            if config_file.exists():
+                try:
+                    with open(config_file, 'r', encoding='utf-8') as f:
+                        config = json.load(f)
+                        self.default_model_cache[category] = config.get('default_model')
+                except Exception as e:
+                    print(f"Warning: Failed to load default model config for {category}: {e}")
+            else:
+                self.default_model_cache[category] = None
+
+    def save_default_model(self, category: str, filename: str):
+        """保存默认模型设置到配置文件"""
+        import json
+        from datetime import datetime
+
+        config_file = self.models_dir / category / '.default.json'
+        config = {
+            'default_model': filename,
+            'last_updated': datetime.now().isoformat()
+        }
+
+        try:
+            with open(config_file, 'w', encoding='utf-8') as f:
+                json.dump(config, f, indent=2, ensure_ascii=False)
+            self.default_model_cache[category] = filename
+            return True
+        except Exception as e:
+            print(f"Error: Failed to save default model config for {category}: {e}")
+            return False
+
+    def get_default_model(self, category: str) -> str:
+        """获取指定类别的默认模型文件名"""
+        return self.default_model_cache.get(category)
 
     def init_ui(self):
         """初始化用户界面"""
@@ -380,6 +421,9 @@ class ModelManagementTab(QWidget):
             if not models:
                 continue
 
+            # 获取该类别的默认模型
+            default_model = self.get_default_model(category)
+
             # 添加带有不同背景颜色的类别标题
             category_item = QListWidgetItem(f"[{category.upper()}]")
             category_item.setFlags(Qt.NoItemFlags)
@@ -410,8 +454,8 @@ class ModelManagementTab(QWidget):
                 description = ModelMetadata.get_model_description(model_metadata)
                 display_name += f"\n  {description}"
 
-                # 如果适用，添加默认标记
-                if category == 'ucf101' and filename == 'ucf101_best.pth':
+                # 如果是默认模型，添加标记
+                if filename == default_model:
                     display_name += " [默认 Default]"
 
                 # 创建列表项
@@ -632,12 +676,15 @@ class ModelManagementTab(QWidget):
 
         # 检查是否为默认模型
         filename = metadata.get('filename', '')
-        if filename == 'ucf101_best.pth':
+        category = metadata.get('category', 'custom')
+        default_model = self.get_default_model(category)
+
+        if filename == default_model:
             reply = QMessageBox.warning(
                 self,
                 "警告 Warning",
                 f"{filename} 是默认模型，确定要删除吗？\n"
-                f"{filename} is a default model, are you sure you want to delete it?",
+                f"{filename} is the default model, are you sure you want to delete it?",
                 QMessageBox.Yes | QMessageBox.No,
                 QMessageBox.No
             )
@@ -685,12 +732,13 @@ class ModelManagementTab(QWidget):
             )
 
     def set_as_default(self):
-        """将选中的模型设为其数据集的默认模型"""
+        """将选中的模型设为其数据集的默认模型（通过配置文件标记，不复制文件）"""
         if not self.current_model_metadata:
             return
 
         metadata = self.current_model_metadata
         category = metadata.get('category', 'custom')
+        filename = metadata.get('filename', '')
 
         # 只能为ucf101设置默认
         if category != 'ucf101':
@@ -701,30 +749,33 @@ class ModelManagementTab(QWidget):
             )
             return
 
-        # 确定默认文件名
-        default_name = 'ucf101_best.pth'
-
-        try:
-            # 将当前模型复制为默认名称
-            current_path = Path(metadata['path'])
-            category_dir = current_path.parent
-            default_path = category_dir / default_name
-
-            # 如果旧的默认存在且不同，则删除
-            if default_path.exists() and default_path != current_path:
-                os.remove(default_path)
-
-            # 复制
-            shutil.copy2(current_path, default_path)
-
+        # 检查是否已经是默认模型
+        current_default = self.get_default_model(category)
+        if filename == current_default:
             QMessageBox.information(
                 self,
-                "成功 Success",
-                f"已设为默认模型 Set as default model:\n{metadata['filename']}\n→ {default_name}"
+                "提示 Info",
+                f"该模型已经是默认模型\nThis model is already the default:\n{filename}"
             )
+            return
 
-            # 刷新列表
-            self.refresh_model_list()
+        try:
+            # 保存配置（不复制文件）
+            if self.save_default_model(category, filename):
+                QMessageBox.information(
+                    self,
+                    "成功 Success",
+                    f"已设为默认模型 Set as default model:\n{filename}\n\n"
+                )
+
+                # 刷新列表以更新默认标记
+                self.refresh_model_list()
+            else:
+                QMessageBox.critical(
+                    self,
+                    "错误 Error",
+                    f"保存默认模型配置失败 Failed to save default model config"
+                )
 
         except Exception as e:
             QMessageBox.critical(
